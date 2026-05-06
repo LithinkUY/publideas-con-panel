@@ -26,7 +26,7 @@ export default function ProcesoPedidosPage() {
             </div>
 
             {/* Steps section (loaded from admin config) */}
-            <ProcessSection />
+            <ProcessSection showAlways />
 
             {/* CTA */}
             <div className="py-20 px-6 text-center">

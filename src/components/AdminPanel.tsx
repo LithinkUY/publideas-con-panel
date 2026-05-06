@@ -102,7 +102,6 @@ const ADMIN_SECTIONS = [
     { id: "precios", label: "Moneda & Precios", icon: DollarSign },
     { id: "pagos", label: "Pasarelas de Pago", icon: CreditCard },
     { id: "home", label: "Secciones del Home", icon: Globe },
-    { id: "proceso", label: "Seccion Proceso", icon: Layers },
     { id: "logo", label: "Logo", icon: Palette },
     { id: "menu", label: "Menu de Navegacion", icon: MenuIcon },
     { id: "paginas", label: "Paginas", icon: FileText },
@@ -2120,9 +2119,74 @@ function HomeSectionsAdmin({ onSave }: { onSave: (msg: string) => void }) {
     }, []);
     useEffect(() => { load(); }, [load]);
 
+    // When type changes to "process", auto-load current steps from /api/process
+    useEffect(() => {
+        if (editing?.type === "process" && !Array.isArray(editing.content?.steps)) {
+            apiGet<unknown[]>("/api/process").then(rows => {
+                const steps: ProcessStep[] = rows.map(r => {
+                    const s = r as Record<string, unknown>;
+                    return {
+                        icon: String(s.icon ?? "?"),
+                        label: String(s.label ?? "PASO"),
+                        description: String(s.description ?? ""),
+                        active: Boolean(s.active ?? true),
+                        icon_url: s.icon_url ? String(s.icon_url) : undefined,
+                        icon_color: s.icon_color ? String(s.icon_color) : undefined,
+                    };
+                });
+                setEditing(ed => ed ? { ...ed, content: { ...ed.content, steps: steps.length ? steps : defaultProcessConfig.steps } } : ed);
+            }).catch(() => {
+                setEditing(ed => ed ? { ...ed, content: { ...ed.content, steps: defaultProcessConfig.steps } } : ed);
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editing?.type]);
+
+    const updateModalStep = (i: number, field: string, val: unknown) => {
+        setEditing(ed => {
+            if (!ed) return ed;
+            const steps = [...((ed.content?.steps as ProcessStep[]) ?? [])];
+            steps[i] = { ...steps[i], [field]: val };
+            return { ...ed, content: { ...ed.content, steps } };
+        });
+    };
+
+    const addModalStep = () => {
+        setEditing(ed => {
+            if (!ed) return ed;
+            const steps = [...((ed.content?.steps as ProcessStep[]) ?? [])];
+            steps.push({ icon: "?", label: "NUEVO", description: "", active: true });
+            return { ...ed, content: { ...ed.content, steps } };
+        });
+    };
+
+    const removeModalStep = (i: number) => {
+        setEditing(ed => {
+            if (!ed) return ed;
+            const steps = ((ed.content?.steps as ProcessStep[]) ?? []).filter((_, j) => j !== i);
+            return { ...ed, content: { ...ed.content, steps } };
+        });
+    };
+
+    const handleModalStepIcon = async (i: number, file: File) => {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("type", "media");
+        try {
+            const res = await fetch("/api/upload", { method: "POST", body: fd });
+            const { url } = await res.json();
+            updateModalStep(i, "icon_url", url);
+        } catch { /* ignore */ }
+    };
+
     const handleSave = async () => {
         if (!editing) return;
         setSaving(true);
+        // If process type, also persist steps to /api/process for ProcessSection backward-compat
+        if (editing.type === "process" && Array.isArray(editing.content?.steps)) {
+            const steps = (editing.content.steps as ProcessStep[]).map((s, idx) => ({ ...s, sort_order: idx + 1 }));
+            await apiPut("/api/process", steps).catch(() => { });
+        }
         const url = editing.id ? `/api/home-sections/${editing.id}` : "/api/home-sections";
         const method = editing.id ? "PUT" : "POST";
         await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(editing) });
@@ -2220,7 +2284,7 @@ function HomeSectionsAdmin({ onSave }: { onSave: (msg: string) => void }) {
                             <div>
                                 <label className="text-xs text-white/40 font-semibold tracking-wider mb-1 block">TIPO</label>
                                 <select className="dark-input text-sm" value={editing.type}
-                                    onChange={e => setEditing(ed => ed ? { ...ed, type: e.target.value } : ed)}>
+                                    onChange={e => setEditing(ed => ed ? { ...ed, type: e.target.value, content: e.target.value === "process" ? {} : ed.content } : ed)}>
                                     {SECTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label} — {t.desc}</option>)}
                                 </select>
                             </div>
@@ -2253,6 +2317,95 @@ function HomeSectionsAdmin({ onSave }: { onSave: (msg: string) => void }) {
                                         placeholder={'[\n  {"label": "Proyectos", "value": "500+"}\n]'} />
                                 </div>
                             )}
+                            {editing.type === "process" && (() => {
+                                const steps = (editing.content?.steps as ProcessStep[] | undefined) ?? [];
+                                return (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-xs text-white/40 font-semibold tracking-wider">PASOS DEL PROCESO</p>
+                                            <button type="button" onClick={addModalStep}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00CFFF]/10 text-[#00CFFF] text-xs font-semibold hover:bg-[#00CFFF]/20">
+                                                <Plus size={12} /> Agregar paso
+                                            </button>
+                                        </div>
+                                        {steps.length === 0 && (
+                                            <p className="text-xs text-white/20 text-center py-4">Cargando pasos…</p>
+                                        )}
+                                        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                                            {steps.map((step, i) => (
+                                                <div key={i} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-3 space-y-2">
+                                                    {/* Row 1 */}
+                                                    <div className="flex items-center gap-2">
+                                                        <button type="button"
+                                                            className={`w-4 h-4 rounded-full flex-shrink-0 border-2 transition-all ${step.active ? "border-green-400 bg-green-400/20" : "border-white/20"}`}
+                                                            onClick={() => updateModalStep(i, "active", !step.active)}
+                                                            title={step.active ? "Desactivar" : "Activar"}
+                                                        />
+                                                        <input
+                                                            value={step.label}
+                                                            onChange={e => updateModalStep(i, "label", e.target.value.toUpperCase())}
+                                                            className="dark-input w-24 text-xs font-semibold flex-shrink-0"
+                                                            placeholder="IDEA"
+                                                        />
+                                                        <input
+                                                            value={step.description ?? ""}
+                                                            onChange={e => updateModalStep(i, "description", e.target.value)}
+                                                            className="dark-input flex-1 text-xs"
+                                                            placeholder="Descripción"
+                                                        />
+                                                        <button type="button" onClick={() => removeModalStep(i)} className="text-white/20 hover:text-red-400 flex-shrink-0">
+                                                            <Trash2 size={13} />
+                                                        </button>
+                                                    </div>
+                                                    {/* Row 2 */}
+                                                    <div className="flex items-center gap-3 flex-wrap bg-[#0d0d0d] rounded-lg p-2 border border-[#2a2a2a]/50">
+                                                        <div>
+                                                            <label className="text-[10px] text-white/50 block mb-1">ÍCONO</label>
+                                                            <input
+                                                                value={step.icon}
+                                                                onChange={e => updateModalStep(i, "icon", e.target.value.slice(0, 2))}
+                                                                className="dark-input w-12 text-center text-sm font-bold"
+                                                                placeholder="I"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-white/50 block mb-1">IMAGEN</label>
+                                                            <label className="cursor-pointer flex items-center gap-2">
+                                                                <div className="w-10 h-10 rounded-lg border-2 border-dashed border-[#3a3a3a] hover:border-[#00CFFF]/60 flex items-center justify-center overflow-hidden bg-[#1a1a1a] transition-colors">
+                                                                    {step.icon_url
+                                                                        ? <img src={step.icon_url} alt="" className="w-full h-full object-contain p-0.5" />
+                                                                        : <ImageIcon size={14} className="text-white/30" />}
+                                                                </div>
+                                                                {step.icon_url && (
+                                                                    <button type="button" onClick={e => { e.preventDefault(); updateModalStep(i, "icon_url", ""); }}
+                                                                        className="text-[10px] text-red-400/70 hover:text-red-400">✕</button>
+                                                                )}
+                                                                <input type="file" accept="image/*" className="hidden"
+                                                                    onChange={e => e.target.files?.[0] && handleModalStepIcon(i, e.target.files[0])} />
+                                                            </label>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-white/50 block mb-1">COLOR GLOW</label>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <input
+                                                                    type="color"
+                                                                    value={step.icon_color ?? "#00CFFF"}
+                                                                    onChange={e => updateModalStep(i, "icon_color", e.target.value)}
+                                                                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                                                                />
+                                                                {step.icon_color && (
+                                                                    <button type="button" onClick={() => updateModalStep(i, "icon_color", "")}
+                                                                        className="text-[10px] text-white/40 hover:text-white/70">Reset</button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                             <div className="flex items-center gap-3">
                                 <label className="text-xs text-white/40 font-semibold tracking-wider">ORDEN</label>
                                 <input type="number" className="dark-input text-sm w-20" value={editing.sort_order}
@@ -2972,7 +3125,6 @@ export default function AdminPanel() {
         precios: <PricingAdmin onSave={showToast} />,
         pagos: <PaymentGatewaysAdmin onSave={showToast} />,
         home: <HomeSectionsAdmin onSave={showToast} />,
-        proceso: <ProcessAdmin onSave={showToast} />,
         logo: <LogoAdmin onSave={showToast} />,
         menu: <MenuAdmin onSave={showToast} />,
         paginas: <PagesAdmin onSave={showToast} />,
