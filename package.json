@@ -12,6 +12,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.3",
+    "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.38.0",
