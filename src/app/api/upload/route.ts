@@ -68,9 +68,9 @@ export async function POST(req: NextRequest) {
         const ext = (file.name.split(".").pop() ?? "bin").toLowerCase();
         const slug =
             type === "logo" ? "logo" :
-            type === "logo_mobile" ? "logo-mobile" :
-            type === "favicon" ? "favicon" :
-            "media";
+                type === "logo_mobile" ? "logo-mobile" :
+                    type === "favicon" ? "favicon" :
+                        "media";
 
         const filename = `${slug}-${Date.now()}.${ext}`;
         const isVideo = file.type.startsWith("video/");
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
         if (useCloudinary) {
             const folder =
                 type === "logo" || type === "logo_mobile" ? "logos" :
-                type === "favicon" ? "favicon" :
-                "media";
+                    type === "favicon" ? "favicon" :
+                        "media";
             const resourceType = isVideo ? "video" : "image";
             url = await uploadToCloudinary(buffer, slug, folder, resourceType);
         } else {
