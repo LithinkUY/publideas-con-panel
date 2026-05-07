@@ -2360,12 +2360,12 @@ function HomeSectionsAdmin({ onSave }: { onSave: (msg: string) => void }) {
                                                     {/* Row 2 */}
                                                     <div className="flex items-center gap-3 flex-wrap bg-[#0d0d0d] rounded-lg p-2 border border-[#2a2a2a]/50">
                                                         <div>
-                                                            <label className="text-[10px] text-white/50 block mb-1">ÍCONO</label>
+                                                            <label className="text-[10px] text-white/50 block mb-1">EMOJI / ÍCONO</label>
                                                             <input
                                                                 value={step.icon}
-                                                                onChange={e => updateModalStep(i, "icon", e.target.value.slice(0, 2))}
-                                                                className="dark-input w-12 text-center text-sm font-bold"
-                                                                placeholder="I"
+                                                                onChange={e => updateModalStep(i, "icon", e.target.value)}
+                                                                className="dark-input w-16 text-center text-xl"
+                                                                placeholder="💡"
                                                             />
                                                         </div>
                                                         <div>
@@ -2497,25 +2497,22 @@ function ProcessAdmin({ onSave }: { onSave: (msg: string) => void }) {
             {/* Preview */}
             <div className="portal-card">
                 <p className="text-xs text-white/40 font-semibold tracking-wider mb-4">VISTA PREVIA</p>
-                <div className="flex items-center justify-center gap-4 flex-wrap py-4 bg-[#0d0d0d] rounded-lg">
-                    <p className="w-full text-center text-white/40 text-xs font-semibold tracking-widest mb-4">{cfg.title}</p>
-                    {cfg.steps.filter(s => s.active).map((step, i, arr) => (
-                        <div key={i} className="flex items-center gap-4">
-                            <div className="flex flex-col items-center gap-2">
-                                <div
-                                    className="w-14 h-14 rounded-full border border-[#2a2a2a] flex items-center justify-center overflow-hidden"
-                                    style={{ backgroundColor: step.icon_color && !step.icon_url ? step.icon_color : "#111" }}
-                                >
-                                    {step.icon_url
-                                        ? <img src={step.icon_url} alt={step.label} className="w-9 h-9 object-contain" />
-                                        : <span className="text-base font-bold text-white/80">{step.icon}</span>
-                                    }
-                                </div>
-                                <span className="text-[10px] text-white/70 font-semibold tracking-widest">{step.label}</span>
+                <div className="bg-[#0a0a0a] rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                        <div className="w-0.5 h-5 rounded-full bg-[#FFE000]" />
+                        <p className="text-xs font-bold text-white/70">{cfg.title}</p>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                        {cfg.steps.filter(s => s.active).map((step, i) => (
+                            <div key={i} className="bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl p-3 flex flex-col items-center justify-center gap-2 aspect-square">
+                                {step.icon_url
+                                    ? <img src={step.icon_url} alt={step.label} className="w-8 h-8 object-contain" />
+                                    : <span className="text-2xl select-none">{step.icon}</span>
+                                }
+                                <span className="text-[9px] text-white/50 font-bold tracking-widest text-center">{step.label}</span>
                             </div>
-                            {i < arr.length - 1 && <div className="w-6 h-px bg-[#2a2a2a]" />}
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -2567,12 +2564,12 @@ function ProcessAdmin({ onSave }: { onSave: (msg: string) => void }) {
                             {/* Row 2: icono texto + imagen + color */}
                             <div className="flex items-center gap-4 flex-wrap bg-[#0d0d0d] rounded-lg p-3 border border-[#2a2a2a]/50">
                                 <div>
-                                    <label className="text-[11px] text-white/60 block mb-1 font-semibold tracking-wider">ICONO TEXTO</label>
+                                    <label className="text-[11px] text-white/60 block mb-1 font-semibold tracking-wider">EMOJI / ÍCONO</label>
                                     <input
                                         value={step.icon}
-                                        onChange={e => updateStep(i, "icon", e.target.value.slice(0, 2))}
-                                        className="dark-input w-14 text-center text-base font-bold"
-                                        placeholder="I"
+                                        onChange={e => updateStep(i, "icon", e.target.value)}
+                                        className="dark-input w-16 text-center text-xl"
+                                        placeholder="💡"
                                     />
                                 </div>
                                 <div>
