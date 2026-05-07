@@ -2273,14 +2273,16 @@ function HomeSectionsAdmin({ onSave }: { onSave: (msg: string) => void }) {
             {/* Modal */}
             {editing !== null && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between p-5 border-b border-[#2a2a2a]">
+                    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+                        {/* Header — fijo */}
+                        <div className="flex items-center justify-between p-5 border-b border-[#2a2a2a] flex-shrink-0">
                             <h3 className="font-bold text-white">{editing.id ? "Editar sección" : "Nueva sección"}</h3>
                             <button type="button" onClick={() => setEditing(null)} className="p-2 rounded-lg hover:bg-white/10 text-white/50">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
-                        <div className="p-5 space-y-4">
+                        {/* Body — scrolleable */}
+                        <div className="p-5 space-y-4 overflow-y-auto flex-1">
                             <div>
                                 <label className="text-xs text-white/40 font-semibold tracking-wider mb-1 block">TIPO</label>
                                 <select className="dark-input text-sm" value={editing.type}
@@ -2417,7 +2419,8 @@ function HomeSectionsAdmin({ onSave }: { onSave: (msg: string) => void }) {
                                 </label>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 p-5 border-t border-[#2a2a2a]">
+                        {/* Footer — fijo */}
+                        <div className="flex justify-end gap-3 p-5 border-t border-[#2a2a2a] flex-shrink-0">
                             <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 text-sm border border-[#3a3a3a] rounded-lg text-white/60 hover:bg-white/5">Cancelar</button>
                             <button type="button" onClick={handleSave} disabled={saving}
                                 className="px-4 py-2 text-sm bg-[#00CFFF] text-black rounded-lg font-bold hover:bg-[#00CFFF]/90 disabled:opacity-50">
