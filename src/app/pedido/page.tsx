@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Search, SlidersHorizontal, X, ShoppingCart, Tag } from "lucide-react";
+import { Search, SlidersHorizontal, X, ShoppingCart, Tag, Ruler } from "lucide-react";
 
 interface Product {
     id: number;
@@ -12,6 +12,7 @@ interface Product {
     name: string;
     description: string;
     price?: number;
+    price_per_m2?: number;
     unit?: string;
     image_url?: string;
     price_visible: boolean;
@@ -31,6 +32,7 @@ interface ServiceRaw {
         name: string;
         description: string;
         price?: number;
+        price_per_m2?: number;
         unit?: string;
         image_url?: string;
         price_visible: boolean;
@@ -48,6 +50,9 @@ export default function PedidoPage() {
     const [priceMax, setPriceMax] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [cartCount, setCartCount] = useState(0);
+    const [calcProduct, setCalcProduct] = useState<Product | null>(null);
+    const [calcWidth, setCalcWidth] = useState("");
+    const [calcHeight, setCalcHeight] = useState("");
 
     useEffect(() => {
         fetch("/api/services")
@@ -63,6 +68,7 @@ export default function PedidoPage() {
                             service_slug: s.slug,
                             service_name: s.name,
                             service_color: s.color ?? "#1a2a3a",
+                            price_per_m2: p.price_per_m2 != null ? Number(p.price_per_m2) : undefined,
                         });
                     }
                 }
@@ -92,23 +98,48 @@ export default function PedidoPage() {
         });
     }, [allProducts, search, selectedCategory, priceMin, priceMax]);
 
-    const handleQuote = (p: Product) => {
-        // Build cart in the exact shape checkout/page.tsx expects
+    const goToCheckout = (p: Product, w?: number, h?: number) => {
+        const m2 = w && h ? parseFloat((w * h).toFixed(4)) : undefined;
+        const pricePerM2 = p.price_per_m2 ?? p.price ?? 0;
+        const total = m2 ? pricePerM2 * m2 : (p.price ?? 0);
         const cartItem = {
             service: p.service_name,
             product: p.name,
             productId: String(p.id),
             serviceSlug: p.service_slug,
             quantity: 1,
+            width: w,
+            height: h,
+            m2,
             variants: [] as string[],
-            basePrice: p.price ?? 0,
-            total: p.price ?? 0,
+            basePrice: m2 ? pricePerM2 : (p.price ?? 0),
+            total,
             currency: "USD",
         };
         sessionStorage.setItem("checkout_cart", JSON.stringify(cartItem));
         setCartCount(c => c + 1);
         window.location.href = "/checkout";
     };
+
+    const handleQuote = (p: Product) => {
+        if (p.calculator_enabled) {
+            setCalcWidth("");
+            setCalcHeight("");
+            setCalcProduct(p);
+        } else {
+            goToCheckout(p);
+        }
+    };
+
+    // m2 calculator derived values
+    const calcW = parseFloat(calcWidth) || 0;
+    const calcH = parseFloat(calcHeight) || 0;
+    const calcM2 = calcW > 0 && calcH > 0 ? calcW * calcH : 0;
+    const calcPrice = calcProduct
+        ? calcM2 > 0
+            ? (calcProduct.price_per_m2 ?? calcProduct.price ?? 0) * calcM2
+            : null
+        : null;
 
     const clearFilters = () => {
         setSearch("");
@@ -122,6 +153,98 @@ export default function PedidoPage() {
     return (
         <div className="min-h-screen flex flex-col bg-gray-50">
             <Header />
+
+            {/* ── M² Calculator Modal ── */}
+            {calcProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+                        <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center gap-2">
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: calcProduct.service_color + "22" }}>
+                                    <Ruler size={18} style={{ color: calcProduct.service_color }} />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-gray-900 text-sm leading-tight">{calcProduct.name}</p>
+                                    <p className="text-xs text-gray-400">{calcProduct.service_name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setCalcProduct(null)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Calculadora de m²</p>
+
+                        <div className="flex gap-3 mb-4">
+                            <div className="flex-1">
+                                <label className="text-xs text-gray-500 block mb-1 font-medium">Ancho (metros)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={calcWidth}
+                                    onChange={e => setCalcWidth(e.target.value)}
+                                    placeholder="ej: 1.50"
+                                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex items-end pb-2 text-gray-300 font-light text-xl">×</div>
+                            <div className="flex-1">
+                                <label className="text-xs text-gray-500 block mb-1 font-medium">Alto (metros)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={calcHeight}
+                                    onChange={e => setCalcHeight(e.target.value)}
+                                    placeholder="ej: 2.00"
+                                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Result */}
+                        <div className={`rounded-2xl p-4 mb-4 text-center transition-all ${calcM2 > 0 ? "bg-blue-50 border border-blue-100" : "bg-gray-50 border border-gray-100"}`}>
+                            {calcM2 > 0 ? (
+                                <>
+                                    <p className="text-2xl font-black text-blue-700">{calcM2.toFixed(2)} m²</p>
+                                    {calcProduct.price_visible && calcPrice != null && (
+                                        <p className="text-sm text-blue-500 font-semibold mt-1">
+                                            US$ {calcPrice.toFixed(2)}
+                                            {calcProduct.price_per_m2 && (
+                                                <span className="text-xs text-blue-400 ml-1 font-normal">(US$ {calcProduct.price_per_m2}/m²)</span>
+                                            )}
+                                        </p>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="text-gray-400 text-sm">Ingresá ancho y alto para calcular</p>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setCalcProduct(null)}
+                                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    goToCheckout(calcProduct, calcW || undefined, calcH || undefined);
+                                    setCalcProduct(null);
+                                }}
+                                disabled={!calcM2}
+                                className="flex-2 flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-colors disabled:opacity-40"
+                                style={{ background: calcProduct.service_color }}
+                            >
+                                Cotizar →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
                 {/* Top bar */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-6 items-start sm:items-center">
