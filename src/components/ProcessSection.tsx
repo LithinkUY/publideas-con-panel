@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ProcessStep {
     icon: string;
@@ -18,10 +18,10 @@ export interface ProcessConfig {
 export const defaultProcessConfig: ProcessConfig = {
     title: "¿Cómo trabajamos?",
     steps: [
-        { icon: "💡", label: "IDEA", description: "Nos contás tu idea y definimos el proyecto.", active: true },
-        { icon: "✏️", label: "DISEÑO", description: "Preparamos los artes y medidas necesarias.", active: true },
-        { icon: "⚙️", label: "PRODUCCIÓN", description: "Producimos con materiales de alta calidad.", active: true },
-        { icon: "🚚", label: "ENTREGA", description: "Entregamos en tiempo y forma acordados.", active: true },
+        { icon: "💡",   label: "IDEA",           description: "Nos contás tu idea y definimos el proyecto.",  active: true },
+        { icon: "✏️", label: "DISEÑO",    description: "Preparamos los artes y medidas necesarias.",         active: true },
+        { icon: "⚙️",   label: "PRODUCCIÓN", description: "Producimos con materiales de alta calidad.",        active: true },
+        { icon: "🚚",  label: "ENTREGA",         description: "Entregamos en tiempo y forma acordados.",           active: true },
     ],
 };
 
@@ -29,6 +29,71 @@ interface ProcessSectionProps {
     showAlways?: boolean;
 }
 
+// Glow card component
+function GlowCard({ step, index }: { step: ProcessStep; index: number }) {
+    const cardRef = useRef<HTMLDivElement>(null);
+    const glowColor = step.icon_color || "#FFE000";
+
+    const onEnter = () => {
+        const el = cardRef.current;
+        if (!el) return;
+        el.style.borderColor = glowColor + "99";
+        el.style.boxShadow = `0 0 0 1px ${glowColor}33, 0 0 22px 5px ${glowColor}40, inset 0 0 18px 0px ${glowColor}0a`;
+        el.style.background = "#111";
+    };
+    const onLeave = () => {
+        const el = cardRef.current;
+        if (!el) return;
+        el.style.borderColor = "";
+        el.style.boxShadow = "";
+        el.style.background = "";
+    };
+
+    return (
+        <div
+            ref={cardRef}
+            onMouseEnter={onEnter}
+            onMouseLeave={onLeave}
+            className="relative bg-[#0d0d0d] border border-[#222] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 aspect-square cursor-default group"
+            style={{ transition: "border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease" }}
+        >
+            {/* Step number */}
+            <span
+                className="absolute top-3 left-3 text-[9px] font-black opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{ color: glowColor }}
+            >
+                {String(index + 1).padStart(2, "0")}
+            </span>
+
+            {/* Icon */}
+            {step.icon_url ? (
+                <img
+                    src={step.icon_url}
+                    alt={step.label}
+                    className="w-12 h-12 object-contain group-hover:scale-110 transition-transform duration-300"
+                />
+            ) : (
+                <span className="text-4xl group-hover:scale-110 transition-transform duration-300 select-none">
+                    {step.icon}
+                </span>
+            )}
+
+            {/* Label */}
+            <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest text-center group-hover:text-white/90 transition-colors duration-300">
+                {step.label}
+            </p>
+
+            {/* Description */}
+            {step.description && (
+                <p className="text-[9px] text-white/25 text-center leading-tight group-hover:text-white/45 transition-colors duration-300">
+                    {step.description}
+                </p>
+            )}
+        </div>
+    );
+}
+
+// Main section
 export default function ProcessSection({ showAlways = false }: ProcessSectionProps) {
     const [cfg, setCfg] = useState<ProcessConfig>(defaultProcessConfig);
     const [hidden, setHidden] = useState(false);
@@ -74,6 +139,7 @@ export default function ProcessSection({ showAlways = false }: ProcessSectionPro
     return (
         <section className="py-20 bg-[#0a0a0a] border-y border-[#1a1a1a]">
             <div className="max-w-5xl mx-auto px-6">
+
                 {/* Heading */}
                 <div className="flex items-center gap-3 mb-10">
                     <div className="w-1 h-8 rounded-full bg-[#FFE000]" />
@@ -83,61 +149,13 @@ export default function ProcessSection({ showAlways = false }: ProcessSectionPro
                     </div>
                 </div>
 
-                {/* Cards grid — identical to portal services */}
+                {/* Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {activeSteps.map((step, i) => {
-                        const glowColor = step.icon_color || "#FFE000";
-                        return (
-                            <div
-                                key={step.label + i}
-                                className="relative bg-[#0d0d0d] border border-[#1a1a1a] rounded-2xl p-6 flex flex-col items-center justify-center gap-3 aspect-square cursor-default transition-all duration-300 group hover:bg-[#111]"
-                                onMouseEnter={e => {
-                                    (e.currentTarget as HTMLElement).style.borderColor = glowColor + "55";
-                                    (e.currentTarget as HTMLElement).style.boxShadow = `0 0 24px ${glowColor}22`;
-                                }}
-                                onMouseLeave={e => {
-                                    (e.currentTarget as HTMLElement).style.borderColor = "";
-                                    (e.currentTarget as HTMLElement).style.boxShadow = "";
-                                }}
-                            >
-                                {/* Step number badge */}
-                                <span
-                                    className="absolute top-3 left-3 text-[9px] font-black opacity-0 group-hover:opacity-100 transition-opacity"
-                                    style={{ color: glowColor }}
-                                >
-                                    {String(i + 1).padStart(2, "0")}
-                                </span>
-
-                                {/* Icon */}
-                                {step.icon_url ? (
-                                    <img
-                                        src={step.icon_url}
-                                        alt={step.label}
-                                        className="w-12 h-12 object-contain transition-transform duration-300 group-hover:scale-110"
-                                    />
-                                ) : (
-                                    <span className="text-4xl transition-transform duration-300 group-hover:scale-110 select-none">
-                                        {step.icon}
-                                    </span>
-                                )}
-
-                                {/* Label */}
-                                <p
-                                    className="text-[10px] font-bold text-white/50 uppercase tracking-widest text-center transition-colors duration-300 group-hover:text-white/80"
-                                >
-                                    {step.label}
-                                </p>
-
-                                {/* Description */}
-                                {step.description && (
-                                    <p className="text-[9px] text-white/20 text-center leading-tight">
-                                        {step.description}
-                                    </p>
-                                )}
-                            </div>
-                        );
-                    })}
+                    {activeSteps.map((step, i) => (
+                        <GlowCard key={step.label + i} step={step} index={i} />
+                    ))}
                 </div>
+
             </div>
         </section>
     );
