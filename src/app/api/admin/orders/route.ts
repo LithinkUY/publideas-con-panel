@@ -12,86 +12,104 @@ function toJSON(obj: unknown): unknown {
 }
 
 export async function POST(req: Request) {
-    const body = await req.json();
-    const {
-        name, email, phone,
-        service_name, product_name, description,
-        quantity, total, currency,
-        status, payment_method, notes,
-    } = body;
+    try {
+        const body = await req.json();
+        const {
+            name, email, phone,
+            description, currency, status, payment_method, notes,
+            total: bodyTotal,
+            items,
+        } = body as {
+            name: string; email: string; phone?: string;
+            description?: string; currency?: string; status?: string;
+            payment_method?: string; notes?: string; total?: number;
+            items?: Array<{ service_name?: string; product_name?: string; quantity?: number; price?: number }>;
+        };
 
-    if (!name || !email) {
-        return NextResponse.json({ error: "Nombre y email requeridos" }, { status: 400 });
-    }
+        if (!name || !email) {
+            return NextResponse.json({ error: "Nombre y email requeridos" }, { status: 400 });
+        }
 
-    // Find or create client
-    const existing = await sql`SELECT * FROM clients WHERE LOWER(email) = LOWER(${email}) LIMIT 1`;
-    let client = existing[0] as Record<string, unknown> | undefined;
-    let isNewClient = false;
-    let pin_code: string | null = null;
+        const existing = await sql`SELECT * FROM clients WHERE LOWER(email) = LOWER(${email}) LIMIT 1`;
+        let client = existing[0] as Record<string, unknown> | undefined;
+        let isNewClient = false;
+        let pin_code: string | null = null;
 
-    if (!client) {
-        isNewClient = true;
-        const pin = generatePin();
-        pin_code = pin;
-        const rows = await sql`
-            INSERT INTO clients (name, email, phone, pin_code, password_hash, role, status)
-            VALUES (${name}, ${email}, ${phone ?? ""}, ${pin}, ${pin}, 'client', 'approved')
-            RETURNING *
+        if (!client) {
+            isNewClient = true;
+            const pin = generatePin();
+            pin_code = pin;
+            const rows = await sql`
+                INSERT INTO clients (name, email, phone, pin_code, password_hash, role, status)
+                VALUES (${name}, ${email}, ${phone ?? ""}, ${pin}, ${pin}, 'client', 'approved')
+                RETURNING *
+            `;
+            client = rows[0] as Record<string, unknown>;
+            const code = generateClientCode(Number(client.id));
+            await sql`UPDATE clients SET client_code = ${code} WHERE id = ${Number(client.id)}`;
+            client.client_code = code;
+            client.pin_code = pin;
+        } else {
+            pin_code = String(client.pin_code ?? "");
+        }
+
+        const now = new Date();
+        const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const countRows = await sql`SELECT COUNT(*) as cnt FROM orders WHERE order_number LIKE ${"PB-" + ym + "-%"}`;
+        const seq = Number(countRows[0].cnt) + 1;
+        const order_number = `PB-${ym}-${String(seq).padStart(4, "0")}`;
+
+        const orderStatus = status ?? "en_produccion";
+        const finalDesc = [description, notes].filter(Boolean).join(" | ");
+        const firstItem = items?.[0];
+        const title = String(firstItem?.product_name ?? firstItem?.service_name ?? "Pedido manual");
+        const serviceSlug = String(firstItem?.service_name ?? "").toLowerCase().replace(/\s+/g, "-");
+        const computedTotal = items?.reduce((sum, it) => sum + (it.price ?? 0) * (it.quantity ?? 1), 0) ?? 0;
+        const finalTotal = Number(bodyTotal ?? computedTotal);
+
+        const orderRows = await sql`
+            INSERT INTO orders (
+                order_number, client_id, service_slug, title, description,
+                status, total, currency, payment_method
+            ) VALUES (
+                ${order_number}, ${Number(client.id)},
+                ${serviceSlug}, ${title}, ${finalDesc ?? ""},
+                ${orderStatus}, ${finalTotal},
+                ${String(currency ?? "USD")}, ${payment_method ?? null}
+            ) RETURNING *
         `;
-        client = rows[0] as Record<string, unknown>;
-        const code = generateClientCode(Number(client.id));
-        await sql`UPDATE clients SET client_code = ${code} WHERE id = ${Number(client.id)}`;
-        client.client_code = code;
-        client.pin_code = pin;
-    } else {
-        pin_code = String(client.pin_code ?? "");
+        const order = orderRows[0] as Record<string, unknown>;
+
+        if (items && items.length > 0) {
+            for (const it of items) {
+                if (it.product_name || it.service_name) {
+                    const itemName = String(it.product_name ?? it.service_name ?? "Producto");
+                    const qty = Number(it.quantity ?? 1);
+                    const price = Number(it.price ?? 0);
+                    await sql`
+                        INSERT INTO order_items (order_id, product_name, quantity, unit_price, subtotal)
+                        VALUES (${Number(order.id)}, ${itemName}, ${qty}, ${price}, ${price * qty})
+                    `;
+                }
+            }
+        }
+
+        return NextResponse.json(toJSON({
+            order_id: order.id,
+            order_number,
+            client_id: client.id,
+            client_code: client.client_code,
+            pin_code,
+            client_name: client.name,
+            client_email: client.email,
+            is_new_client: isNewClient,
+        }), { status: 201 });
+
+    } catch (err) {
+        console.error("[admin/orders POST]", err);
+        return NextResponse.json(
+            { error: err instanceof Error ? err.message : "Error interno al crear el pedido" },
+            { status: 500 }
+        );
     }
-
-    // Generate order number
-    const now = new Date();
-    const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const countRows = await sql`SELECT COUNT(*) as cnt FROM orders WHERE order_number LIKE ${"PB-" + ym + "-%"}`;
-    const seq = Number(countRows[0].cnt) + 1;
-    const order_number = `PB-${ym}-${String(seq).padStart(4, "0")}`;
-
-    const orderStatus = status ?? "en_produccion";
-    const finalDesc = [description, notes].filter(Boolean).join(" | ");
-
-    const orderRows = await sql`
-        INSERT INTO orders (
-            order_number, client_id, service_slug, title, description,
-            status, total, total_amount, currency, contact_email, contact_phone, payment_method
-        ) VALUES (
-            ${order_number}, ${Number(client.id)},
-            ${String(service_name ?? "").toLowerCase().replace(/\s+/g, "-")},
-            ${String(product_name ?? service_name ?? "Pedido manual")},
-            ${finalDesc ?? ""},
-            ${orderStatus},
-            ${Number(total ?? 0)}, ${Number(total ?? 0)},
-            ${String(currency ?? "USD")},
-            ${email}, ${phone ?? ""},
-            ${payment_method ?? null}
-        ) RETURNING *
-    `;
-    const order = orderRows[0] as Record<string, unknown>;
-
-    if (product_name) {
-        await sql`
-            INSERT INTO order_items (order_id, product_name, quantity, unit_price, subtotal)
-            VALUES (${Number(order.id)}, ${product_name}, ${Number(quantity ?? 1)},
-                    ${Number(total ?? 0)}, ${Number(total ?? 0)})
-        `;
-    }
-
-    return NextResponse.json(toJSON({
-        order_id: order.id,
-        order_number,
-        client_id: client.id,
-        client_code: client.client_code,
-        pin_code,
-        client_name: client.name,
-        client_email: client.email,
-        is_new_client: isNewClient,
-    }), { status: 201 });
 }

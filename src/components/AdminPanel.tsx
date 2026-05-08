@@ -199,13 +199,17 @@ function DashboardSection() {
 
 
 // ── Nuevo Pedido Manual ──────────────────────────────────────────────────
+type ItemLine = { service_name: string; product_name: string; quantity: string; price: string };
+
 function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const [form, setForm] = React.useState({
         name: "", email: "", phone: "",
-        service_name: "", product_name: "", description: "",
-        quantity: "1", total: "", currency: "USD",
+        description: "", currency: "USD",
         status: "en_produccion", payment_method: "", notes: "",
     });
+    const [items, setItems] = React.useState<ItemLine[]>([
+        { service_name: "", product_name: "", quantity: "1", price: "" },
+    ]);
     const [saving, setSaving] = React.useState(false);
     const [result, setResult] = React.useState<{
         order_number: string; client_code: string; pin_code: string;
@@ -213,6 +217,19 @@ function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
     } | null>(null);
 
     const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+    const updateItem = (i: number, k: keyof ItemLine, v: string) =>
+        setItems(prev => prev.map((item, idx) => idx === i ? { ...item, [k]: v } : item));
+
+    const addItem = () =>
+        setItems(prev => [...prev, { service_name: "", product_name: "", quantity: "1", price: "" }]);
+
+    const removeItem = (i: number) =>
+        setItems(prev => prev.filter((_, idx) => idx !== i));
+
+    const totalCalc = items.reduce(
+        (sum, it) => sum + (parseFloat(it.price) || 0) * (parseInt(it.quantity) || 1), 0
+    );
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -224,18 +241,26 @@ function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
                 client_name: string; client_email: string; is_new_client: boolean;
             }>("/api/admin/orders", {
                 ...form,
-                quantity: Number(form.quantity),
-                total: Number(form.total),
+                total: totalCalc,
+                items: items.map(it => ({
+                    service_name: it.service_name,
+                    product_name: it.product_name,
+                    quantity: Number(it.quantity) || 1,
+                    price: parseFloat(it.price) || 0,
+                })),
             });
             setResult(res);
             onSave("Pedido creado: " + res.order_number);
-        } catch (e) { onSave("Error: " + String(e)); }
-        finally { setSaving(false); }
+        } catch (e) {
+            onSave("Error: " + String(e));
+        } finally { setSaving(false); }
     };
 
     const reset = () => {
         setResult(null);
-        setForm({ name: "", email: "", phone: "", service_name: "", product_name: "", description: "", quantity: "1", total: "", currency: "USD", status: "en_produccion", payment_method: "", notes: "" });
+        setForm({ name: "", email: "", phone: "", description: "", currency: "USD",
+            status: "en_produccion", payment_method: "", notes: "" });
+        setItems([{ service_name: "", product_name: "", quantity: "1", price: "" }]);
     };
 
     const STATUS_OPTIONS = [
@@ -291,6 +316,7 @@ function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-5 max-w-xl">
+            {/* Datos del cliente */}
             <div>
                 <h3 className="text-sm font-semibold text-white/70 mb-4">Datos del cliente</h3>
                 <div className="grid grid-cols-1 gap-3">
@@ -312,32 +338,68 @@ function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
                 </div>
             </div>
 
+            {/* Productos / Servicios */}
             <div>
-                <h3 className="text-sm font-semibold text-white/70 mb-4">Datos del pedido</h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-white/70">Productos / Servicios</h3>
+                    <span className="text-xs text-white/30">Total: <span className="font-bold text-[#00CFFF]">{form.currency} {totalCalc.toFixed(2)}</span></span>
+                </div>
+
                 <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[10px] text-white/40 mb-1 block">Servicio</label>
-                            <input value={form.service_name} onChange={e => set("service_name", e.target.value)} className="dark-input w-full" placeholder="Ej: Lonas, Viniles..." />
+                    {items.map((item, i) => (
+                        <div key={i} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-white/30 font-semibold">PRODUCTO {i + 1}</span>
+                                {items.length > 1 && (
+                                    <button type="button" onClick={() => removeItem(i)} className="text-white/20 hover:text-red-400 transition-colors">
+                                        <Trash2 size={13} />
+                                    </button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-[10px] text-white/40 mb-1 block">Servicio</label>
+                                    <input value={item.service_name} onChange={e => updateItem(i, "service_name", e.target.value)} className="dark-input w-full text-xs" placeholder="Ej: Lonas, Viniles..." />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-white/40 mb-1 block">Producto / Descripción corta</label>
+                                    <input value={item.product_name} onChange={e => updateItem(i, "product_name", e.target.value)} className="dark-input w-full text-xs" placeholder="Ej: Lona full color 2x1m" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-[10px] text-white/40 mb-1 block">Cantidad</label>
+                                    <input type="number" min="1" value={item.quantity} onChange={e => updateItem(i, "quantity", e.target.value)} className="dark-input w-full text-xs" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-white/40 mb-1 block">Precio unitario ({form.currency})</label>
+                                    <input type="number" min="0" step="0.01" value={item.price} onChange={e => updateItem(i, "price", e.target.value)} className="dark-input w-full text-xs" placeholder="0.00" />
+                                </div>
+                            </div>
+                            {item.price && item.quantity && (
+                                <p className="text-[10px] text-white/30 text-right">
+                                    Subtotal: <span className="text-[#00CFFF] font-bold">{form.currency} {((parseFloat(item.price) || 0) * (parseInt(item.quantity) || 1)).toFixed(2)}</span>
+                                </p>
+                            )}
                         </div>
-                        <div>
-                            <label className="text-[10px] text-white/40 mb-1 block">Producto / Descripción corta</label>
-                            <input value={form.product_name} onChange={e => set("product_name", e.target.value)} className="dark-input w-full" placeholder="Ej: Lona full color 2x1m" />
-                        </div>
-                    </div>
+                    ))}
+                </div>
+
+                <button type="button" onClick={addItem}
+                    className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-dashed border-[#3a3a3a] text-white/40 hover:border-[#00CFFF]/50 hover:text-[#00CFFF] transition-all text-xs font-semibold">
+                    <Plus size={13} /> Agregar otro producto
+                </button>
+            </div>
+
+            {/* Opciones del pedido */}
+            <div>
+                <h3 className="text-sm font-semibold text-white/70 mb-4">Opciones del pedido</h3>
+                <div className="space-y-3">
                     <div>
-                        <label className="text-[10px] text-white/40 mb-1 block">Descripción / especificaciones</label>
-                        <textarea value={form.description} onChange={e => set("description", e.target.value)} rows={2} className="dark-input w-full resize-none" placeholder="Medidas, materiales, acabados, observaciones..." />
+                        <label className="text-[10px] text-white/40 mb-1 block">Descripción / especificaciones generales</label>
+                        <textarea value={form.description} onChange={e => set("description", e.target.value)} rows={2} className="dark-input w-full resize-none" placeholder="Medidas, materiales, observaciones generales..." />
                     </div>
                     <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-[10px] text-white/40 mb-1 block">Cantidad</label>
-                            <input type="number" min="1" value={form.quantity} onChange={e => set("quantity", e.target.value)} className="dark-input w-full" />
-                        </div>
-                        <div>
-                            <label className="text-[10px] text-white/40 mb-1 block">Total</label>
-                            <input type="number" min="0" step="0.01" value={form.total} onChange={e => set("total", e.target.value)} className="dark-input w-full" placeholder="0.00" />
-                        </div>
                         <div>
                             <label className="text-[10px] text-white/40 mb-1 block">Moneda</label>
                             <select value={form.currency} onChange={e => set("currency", e.target.value)} className="dark-input w-full">
@@ -345,8 +407,6 @@ function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
                                 <option value="UYU">UYU</option>
                             </select>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-[10px] text-white/40 mb-1 block">Estado inicial</label>
                             <select value={form.status} onChange={e => set("status", e.target.value)} className="dark-input w-full">
@@ -355,7 +415,7 @@ function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
                         </div>
                         <div>
                             <label className="text-[10px] text-white/40 mb-1 block">Método de pago</label>
-                            <input value={form.payment_method} onChange={e => set("payment_method", e.target.value)} className="dark-input w-full" placeholder="Transferencia, efectivo..." />
+                            <input value={form.payment_method} onChange={e => set("payment_method", e.target.value)} className="dark-input w-full" placeholder="Transferencia..." />
                         </div>
                     </div>
                     <div>
@@ -365,12 +425,22 @@ function NuevoPedidoAdmin({ onSave }: { onSave: (msg: string) => void }) {
                 </div>
             </div>
 
+            {/* Total y submit */}
+            <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] text-white/30 uppercase tracking-wider">Total del pedido</p>
+                    <p className="text-2xl font-black text-[#00CFFF]">{form.currency} {totalCalc.toFixed(2)}</p>
+                </div>
+                <p className="text-xs text-white/30">{items.length} producto{items.length !== 1 ? "s" : ""}</p>
+            </div>
+
             <button type="submit" disabled={saving} className="w-full py-3 rounded-xl bg-[#00CFFF] text-black text-sm font-bold hover:bg-[#00CFFF]/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                 {saving ? <><Loader2 size={16} className="animate-spin" /> Creando pedido...</> : <><Plus size={16} /> Crear pedido manual</>}
             </button>
         </form>
     );
 }
+
 // Dispatch form for admin orders
 function DispatchForm({ order, onSaved }: { order: ApiOrder; onSaved: (u: Partial<ApiOrder>) => void }) {
     const [fecha, setFecha] = React.useState(order.despacho_fecha?.slice(0, 10) ?? "");
