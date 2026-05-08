@@ -37,7 +37,7 @@ export const defaultFooterConfig: FooterConfig = {
     email_placeholder: "Tu correo electrónico",
     join_team_url: "/contacto",
     payment_methods: ["Mercado Pago", "Handy"],
-    copyright: "© 2026 USER. Todos los derechos reservados.",
+    copyright: "© 2026 Publideas UY. Todos los derechos reservados.",
 };
 
 // ── Social icons (inline SVG) ─────────────────────────────────
@@ -65,11 +65,16 @@ function SocialIcon({ platform }: { platform: string }) {
 export default function Footer() {
     const [cfg, setCfg] = useState<FooterConfig>(defaultFooterConfig);
     const [email, setEmail] = useState("");
+    const [logoText, setLogoText] = useState("Publideas UY");
 
     useEffect(() => {
         fetch("/api/config?key=footer")
             .then(r => r.json())
             .then(val => { if (val) setCfg({ ...defaultFooterConfig, ...val }); })
+            .catch(() => { });
+        fetch("/api/config?key=header")
+            .then(r => r.json())
+            .then(val => { if (val?.logo_text) setLogoText(val.logo_text); })
             .catch(() => { });
     }, []);
 
@@ -190,7 +195,7 @@ export default function Footer() {
             {/* Bottom bar */}
             <div className="border-t border-[#1a1a1a] px-6 py-4 max-w-7xl mx-auto flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <span className="text-xl font-black italic text-white">user</span>
+                    <span className="text-xl font-black italic text-white">{logoText}</span>
                     <div className="flex gap-[3px]">
                         {["#00CFFF", "#E91E8C", "#FFE000", "#FFFFFF"].map((c, i) => (
                             <div key={i} className="h-[3px] w-[10px] rounded-sm" style={{ backgroundColor: c }} />
