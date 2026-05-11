@@ -1,6 +1,8 @@
 import { sql } from "@/lib/db";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // GET all products for a service
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
