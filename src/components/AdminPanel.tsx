@@ -1098,7 +1098,7 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                             <button onClick={() => {
                                 // Track for DB deletion only if it's a real saved service (has a slug, not new_)
                                 if (s.slug && !s.id.startsWith("new_")) {
-                                    setDeletedServiceSlugs(prev => [...prev, s.slug]);
+                                    setDeletedServiceSlugs(prev => [...prev, s.slug as string]);
                                 }
                                 setList(prev => prev.filter(x => x.id !== s.id));
                             }} className="text-white/20 hover:text-red-400">
