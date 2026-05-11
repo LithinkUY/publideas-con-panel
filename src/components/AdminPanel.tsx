@@ -886,6 +886,8 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const [saving, setSaving] = useState(false);
     // Track real DB product IDs that were deleted, so we can DELETE them on save
     const [deletedProductIds, setDeletedProductIds] = useState<{ slug: string; id: string }[]>([]);
+    // Track real DB service slugs that were deleted, so we can DELETE them on save
+    const [deletedServiceSlugs, setDeletedServiceSlugs] = useState<string[]>([]);
 
     useEffect(() => {
         apiGet<Variant[]>("/api/variants").then(setAllVariants).catch(() => { });
@@ -975,7 +977,13 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const handleSave = async () => {
         setSaving(true);
         try {
-            // 1. Delete removed products from DB
+            // 1. Delete removed services from DB
+            for (const slug of deletedServiceSlugs) {
+                await apiDelete(`/api/services/${slug}`).catch(() => { });
+            }
+            setDeletedServiceSlugs([]);
+
+            // 2. Delete removed products from DB
             for (const { slug, id } of deletedProductIds) {
                 await apiDelete(`/api/services/${slug}/products/${id}`).catch(() => { });
             }
@@ -1087,7 +1095,13 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                             <button onClick={() => updateField(s.id, "active", !s.active)} className={s.active ? "text-green-400" : "text-white/20"}>
                                 {s.active ? <CheckCircle size={18} /> : <XCircle size={18} />}
                             </button>
-                            <button onClick={() => setList(prev => prev.filter(x => x.id !== s.id))} className="text-white/20 hover:text-red-400">
+                            <button onClick={() => {
+                                // Track for DB deletion only if it's a real saved service (has a slug, not new_)
+                                if (s.slug && !s.id.startsWith("new_")) {
+                                    setDeletedServiceSlugs(prev => [...prev, s.slug]);
+                                }
+                                setList(prev => prev.filter(x => x.id !== s.id));
+                            }} className="text-white/20 hover:text-red-400">
                                 <Trash2 size={15} />
                             </button>
                         </div>
