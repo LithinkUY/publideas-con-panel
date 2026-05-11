@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+:root {
+  --cyan: #00cfff;
+  --magenta: #e91e8c;
+  --yellow: #ffe000;
+  --bg: #0a0a0a;
+  --bg2: #111111;
+  --bg3: #1a1a1a;
+  --border: #2a2a2a;
+  --text: #ffffff;
+  --text-muted: #888888;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+@keyframes printerSweep {
+  0% {
+    left: -15%;
+  }
+
+  100% {
+    left: 115%;
+  }
+}
+
+@keyframes printerSweepLoop {
+  0% {
+    left: -80px;
+  }
+
+  100% {
+    left: calc(100% + 80px);
+  }
+}
+
+@keyframes inkReveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+
+  5% {
+    opacity: 1;
+  }
+
+  100% {
+    clip-path: inset(0 0% 0 0);
+    opacity: 1;
+  }
+}
+
+.printer-head {
+  animation: printerSweep 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ink-text {
+  animation: inkReveal 3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.brand-gradient {
+  background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--yellow));
+}
+
+.brand-gradient-text {
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.portal-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.dark-input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 14px;
+  width: 100%;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.dark-input:focus {
+  border-color: var(--cyan);
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+.sidebar-item:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+.sidebar-item.active {
+  background: var(--bg3);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.label-xs {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
