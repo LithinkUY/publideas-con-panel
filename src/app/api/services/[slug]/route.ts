@@ -24,6 +24,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ slug: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
+    // Remove product variants first, then products, then service (FK chain)
+    await sql`
+        DELETE FROM product_variants
+        WHERE product_id IN (SELECT id FROM service_products WHERE service_slug=${slug})
+    `;
+    await sql`DELETE FROM service_products WHERE service_slug=${slug}`;
     await sql`DELETE FROM services WHERE slug=${slug}`;
     return NextResponse.json({ ok: true });
 }

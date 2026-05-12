@@ -35,6 +35,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ slug: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ slug: string; productId: string }> }) {
     const { productId } = await params;
-    await sql`DELETE FROM service_products WHERE id=${Number(productId)}`;
+    const numId = Number(productId);
+    // Remove variant associations first (FK constraint)
+    await sql`DELETE FROM product_variants WHERE product_id=${numId}`;
+    await sql`DELETE FROM service_products WHERE id=${numId}`;
     return NextResponse.json({ ok: true });
 }
