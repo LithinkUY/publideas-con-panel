@@ -922,7 +922,7 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const reloadServices = () =>
         apiGet<unknown[]>("/api/services")
             .then(rows => setList(rows.map(mapRow)))
-            .catch(() => setList(mockServices));
+            .catch(err => { console.error("reloadServices error:", err); });
 
     useEffect(() => {
         apiGet<Variant[]>("/api/variants").then(setAllVariants).catch(() => { });
@@ -963,13 +963,17 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
             : s));
     };
 
-    const removeProduct = (serviceId: string, productId: string) => {
+    const removeProduct = async (serviceId: string, productId: string) => {
         // If it has a real numeric ID (exists in DB), delete it immediately from the API
         const service = list.find(s => s.id === serviceId);
         if (!productId.startsWith("p") && !isNaN(Number(productId)) && Number(productId) > 0) {
             const serviceSlug = service?.slug || serviceId;
-            apiDelete(`/api/services/${serviceSlug}/products/${productId}`)
-                .catch(e => onSave("Error al eliminar producto: " + String(e)));
+            try {
+                await apiDelete(`/api/services/${serviceSlug}/products/${productId}`);
+            } catch (e) {
+                onSave("Error al eliminar producto: " + String(e));
+                return; // Don't remove from UI if DB delete failed
+            }
         }
         setList(prev => prev.map(s => s.id === serviceId
             ? { ...s, products: (s.products ?? []).filter(p => p.id !== productId) }
