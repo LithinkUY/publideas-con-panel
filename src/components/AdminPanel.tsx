@@ -1007,6 +1007,9 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                     await apiPut(`/api/services/${serviceSlug}`, body);
                 }
 
+                // Full sync: delete ALL products for this service, then re-insert from current state
+                // This guarantees the DB matches exactly what the user sees in the UI
+                await apiDelete(`/api/services/${serviceSlug}/products`);
                 for (const p of s.products ?? []) {
                     const productBody = {
                         name: p.name, description: p.description ?? "",
@@ -1019,13 +1022,7 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                         details: p.details ?? [],
                         variant_ids: p.variant_ids ?? [],
                     };
-                    const numId = Number(p.id);
-                    const isNewProduct = p.id.startsWith("p") || isNaN(numId) || numId <= 0;
-                    if (!isNewProduct) {
-                        await apiPut(`/api/services/${serviceSlug}/products/${p.id}`, productBody);
-                    } else {
-                        await apiPost(`/api/services/${serviceSlug}/products`, productBody);
-                    }
+                    await apiPost(`/api/services/${serviceSlug}/products`, productBody);
                 }
             }
             onSave("Servicios y productos guardados ✓");
@@ -1033,7 +1030,6 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
             onSave("Error al guardar: " + String(e));
         } finally {
             setSaving(false);
-            // Always reload from DB to ensure local state matches what's actually saved
             await reloadServices();
         }
     };

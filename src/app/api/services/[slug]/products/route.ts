@@ -19,7 +19,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
     return NextResponse.json(rows);
 }
 
-// POST create a new product for a service
+// DELETE all products for a service (used by full-sync save)
+export async function DELETE(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
+    // Remove variant associations first
+    await sql`
+        DELETE FROM product_variants
+        WHERE product_id IN (SELECT id FROM service_products WHERE service_slug=${slug})
+    `;
+    await sql`DELETE FROM service_products WHERE service_slug=${slug}`;
+    return NextResponse.json({ ok: true });
+}
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
     const body = await req.json();
