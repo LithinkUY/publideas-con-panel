@@ -885,43 +885,49 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
+    const mapRow = (raw: unknown): Service => {
+        const r = raw as Record<string, unknown>;
+        return {
+            id: String(r.id ?? ""),
+            slug: String(r.slug ?? ""),
+            name: String(r.name ?? ""),
+            description: String(r.description ?? ""),
+            image_url: String(r.icon ?? r.image_url ?? ""),
+            color: String(r.color ?? "#1a2a3a"),
+            order: Number(r.sort_order ?? 0),
+            active: Boolean(r.active),
+            products: Array.isArray(r.products) ? (r.products as unknown[]).map(raw2 => {
+                const p = raw2 as Record<string, unknown>;
+                return {
+                    id: String(p.id ?? ""),
+                    service_id: String(r.id ?? ""),
+                    name: String(p.name ?? ""),
+                    description: String(p.description ?? ""),
+                    price: p.price != null ? Number(p.price) : undefined,
+                    unit: p.unit ? String(p.unit) : undefined,
+                    image_url: p.image_url ? String(p.image_url) : undefined,
+                    price_visible: p.price_visible !== false,
+                    calculator_enabled: Boolean(p.calculator_enabled),
+                    price_per_m2: p.price_per_m2 != null ? Number(p.price_per_m2) : undefined,
+                    active: Boolean(p.active),
+                    order: Number(p.sort_order ?? p.order ?? 0),
+                    sort_order: Number(p.sort_order ?? 0),
+                    details: Array.isArray(p.details) ? p.details as ProductDetail[] : [],
+                    variant_ids: Array.isArray(p.variant_ids) ? (p.variant_ids as number[]) : [],
+                } as ServiceProduct;
+            }) : [],
+        };
+    };
+
+    const reloadServices = () =>
+        apiGet<unknown[]>("/api/services")
+            .then(rows => setList(rows.map(mapRow)))
+            .catch(() => setList(mockServices));
+
     useEffect(() => {
         apiGet<Variant[]>("/api/variants").then(setAllVariants).catch(() => { });
-        apiGet<unknown[]>("/api/services")
-            .then(rows => setList(rows.map(raw => {
-                const r = raw as Record<string, unknown>;
-                return {
-                    id: String(r.id ?? ""),
-                    slug: String(r.slug ?? ""),
-                    name: String(r.name ?? ""),
-                    description: String(r.description ?? ""),
-                    image_url: String(r.icon ?? r.image_url ?? ""),
-                    color: String(r.color ?? "#1a2a3a"),
-                    order: Number(r.sort_order ?? 0),
-                    active: Boolean(r.active),
-                    products: Array.isArray(r.products) ? (r.products as unknown[]).map(raw2 => {
-                        const p = raw2 as Record<string, unknown>;
-                        return {
-                            id: String(p.id ?? ""),
-                            service_id: String(r.id ?? ""),
-                            name: String(p.name ?? ""),
-                            description: String(p.description ?? ""),
-                            price: p.price != null ? Number(p.price) : undefined,
-                            unit: p.unit ? String(p.unit) : undefined,
-                            image_url: p.image_url ? String(p.image_url) : undefined,
-                            price_visible: p.price_visible !== false,
-                            calculator_enabled: Boolean(p.calculator_enabled),
-                            price_per_m2: p.price_per_m2 != null ? Number(p.price_per_m2) : undefined,
-                            active: Boolean(p.active),
-                            order: Number(p.sort_order ?? p.order ?? 0),
-                            sort_order: Number(p.sort_order ?? 0),
-                            details: Array.isArray(p.details) ? p.details as ProductDetail[] : [],
-                            variant_ids: Array.isArray(p.variant_ids) ? (p.variant_ids as number[]) : [],
-                        } as ServiceProduct;
-                    }) : [],
-                };
-            })))
-            .catch(() => setList(mockServices));
+        reloadServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const updateField = (id: string, field: keyof Service, value: unknown) => {
@@ -962,7 +968,8 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
         const service = list.find(s => s.id === serviceId);
         if (!productId.startsWith("p") && !isNaN(Number(productId)) && Number(productId) > 0) {
             const serviceSlug = service?.slug || serviceId;
-            apiDelete(`/api/services/${serviceSlug}/products/${productId}`).catch(() => { });
+            apiDelete(`/api/services/${serviceSlug}/products/${productId}`)
+                .catch(e => onSave("Error al eliminar producto: " + String(e)));
         }
         setList(prev => prev.map(s => s.id === serviceId
             ? { ...s, products: (s.products ?? []).filter(p => p.id !== productId) }
@@ -978,12 +985,10 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                     icon: s.image_url, active: s.active, sort_order: s.order,
                     color: s.color,
                 };
-                // Determine if this is an existing DB service (has a real slug)
                 const isNew = !s.slug || s.id.startsWith("new_");
                 let serviceSlug = s.slug || s.id;
 
                 if (isNew) {
-                    // Generate slug from name
                     const autoSlug = s.name
                         .toLowerCase()
                         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -991,14 +996,10 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                         || `servicio-${Date.now()}`;
                     const created = await apiPost<{ slug?: string; id?: string }>("/api/services", { slug: autoSlug, ...body });
                     serviceSlug = String(created.slug ?? created.id ?? autoSlug);
-                    // Update local state so next saves use the real slug
-                    setList(prev => prev.map(x => x.id === s.id ? { ...x, slug: serviceSlug } : x));
                 } else {
                     await apiPut(`/api/services/${serviceSlug}`, body);
                 }
 
-                // Save each product
-                const updatedProducts: ServiceProduct[] = [];
                 for (const p of s.products ?? []) {
                     const productBody = {
                         name: p.name, description: p.description ?? "",
@@ -1015,22 +1016,18 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                     const isNewProduct = p.id.startsWith("p") || isNaN(numId) || numId <= 0;
                     if (!isNewProduct) {
                         await apiPut(`/api/services/${serviceSlug}/products/${p.id}`, productBody);
-                        updatedProducts.push(p);
                     } else {
-                        // Insert and update local ID so re-saves don't duplicate
-                        const created = await apiPost<{ id?: number | string }>(`/api/services/${serviceSlug}/products`, productBody);
-                        const newId = String(created.id ?? p.id);
-                        updatedProducts.push({ ...p, id: newId });
+                        await apiPost(`/api/services/${serviceSlug}/products`, productBody);
                     }
                 }
-                // Persist updated product IDs into list state
-                setList(prev => prev.map(x => x.id === s.id ? { ...x, products: updatedProducts } : x));
             }
             onSave("Servicios y productos guardados ✓");
         } catch (e) {
             onSave("Error al guardar: " + String(e));
         } finally {
             setSaving(false);
+            // Always reload from DB to ensure local state matches what's actually saved
+            await reloadServices();
         }
     };
 
@@ -1078,10 +1075,14 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                             <button onClick={() => updateField(s.id, "active", !s.active)} className={s.active ? "text-green-400" : "text-white/20"}>
                                 {s.active ? <CheckCircle size={18} /> : <XCircle size={18} />}
                             </button>
-                            <button onClick={() => {
-                                // Delete from DB immediately if it's a real saved service
+                            <button onClick={async () => {
                                 if (s.slug && !s.id.startsWith("new_")) {
-                                    apiDelete(`/api/services/${s.slug as string}`).catch(() => { });
+                                    try {
+                                        await apiDelete(`/api/services/${s.slug as string}`);
+                                    } catch (e) {
+                                        onSave("Error al eliminar servicio: " + String(e));
+                                        return;
+                                    }
                                 }
                                 setList(prev => prev.filter(x => x.id !== s.id));
                             }} className="text-white/20 hover:text-red-400">
