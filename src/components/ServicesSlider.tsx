@@ -73,7 +73,7 @@ export default function ServicesSlider() {
     const [emblaRef, emblaApi] = useEmblaCarousel({ align: "start", dragFree: true });
 
     useEffect(() => {
-        fetch("/api/services")
+        fetch("/api/services", { cache: "no-store" })
             .then(r => r.json())
             .then((rows: unknown[]) =>
                 setList(rows.map(raw => mapApiService(raw as Record<string, unknown>)))

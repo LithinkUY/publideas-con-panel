@@ -23,7 +23,7 @@ import { defaultFooterConfig, FooterConfig, SocialLink } from "@/components/Foot
 
 // ── API helpers ───────────────────────────────────────────────
 async function apiGet<T>(url: string): Promise<T> {
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`GET ${url} → ${res.status}`);
     return res.json();
 }
@@ -927,7 +927,7 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     useEffect(() => {
         apiGet<Variant[]>("/api/variants").then(setAllVariants).catch(() => { });
         reloadServices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const updateField = (id: string, field: keyof Service, value: unknown) => {
