@@ -24,12 +24,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ slug: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
-    // Remove product variants first, then products, then service (FK chain)
-    await sql`
-        DELETE FROM product_variants
-        WHERE product_id IN (SELECT id FROM service_products WHERE service_slug=${slug})
-    `;
-    await sql`DELETE FROM service_products WHERE service_slug=${slug}`;
-    await sql`DELETE FROM services WHERE slug=${slug}`;
-    return NextResponse.json({ ok: true });
+    const errors: string[] = [];
+    try {
+        await sql`
+            DELETE FROM product_variants
+            WHERE product_id IN (SELECT id FROM service_products WHERE service_slug=${slug})
+        `;
+    } catch (e) {
+        errors.push("product_variants: " + String(e));
+    }
+    try {
+        await sql`DELETE FROM service_products WHERE service_slug=${slug}`;
+    } catch (e) {
+        errors.push("service_products: " + String(e));
+    }
+    try {
+        await sql`DELETE FROM services WHERE slug=${slug}`;
+    } catch (e) {
+        errors.push("services: " + String(e));
+        return NextResponse.json({ ok: false, errors }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, warnings: errors.length ? errors : undefined });
 }

@@ -47,7 +47,10 @@ async function apiPost<T>(url: string, body: unknown): Promise<T> {
 }
 async function apiDelete(url: string): Promise<void> {
     const res = await fetch(url, { method: "DELETE" });
-    if (!res.ok) throw new Error(`DELETE ${url} → ${res.status}`);
+    if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`DELETE ${url} → ${res.status}: ${body}`);
+    }
 }
 
 async function loadConfigFromApi(): Promise<SiteConfig> {
