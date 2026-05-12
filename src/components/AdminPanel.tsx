@@ -1007,23 +1007,20 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                     await apiPut(`/api/services/${serviceSlug}`, body);
                 }
 
-                // Full sync: delete ALL products for this service, then re-insert from current state
-                // This guarantees the DB matches exactly what the user sees in the UI
-                await apiDelete(`/api/services/${serviceSlug}/products`);
-                for (const p of s.products ?? []) {
-                    const productBody = {
+                // Full sync: send entire product list, server replaces everything
+                await apiPost(`/api/services/${serviceSlug}/sync`, {
+                    products: (s.products ?? []).map((p, i) => ({
                         name: p.name, description: p.description ?? "",
                         price: p.price ?? null, unit: p.unit ?? "unidad",
-                        active: p.active, sort_order: p.sort_order ?? p.order ?? 0,
+                        active: p.active, sort_order: i,
                         image_url: p.image_url ?? null,
                         price_visible: p.price_visible ?? true,
                         calculator_enabled: p.calculator_enabled ?? false,
                         price_per_m2: p.price_per_m2 ?? null,
                         details: p.details ?? [],
                         variant_ids: p.variant_ids ?? [],
-                    };
-                    await apiPost(`/api/services/${serviceSlug}/products`, productBody);
-                }
+                    })),
+                });
             }
             onSave("Servicios y productos guardados ✓");
         } catch (e) {
