@@ -888,6 +888,10 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
+    // Keep a ref to always read the latest list state (avoids stale closures in handleSave)
+    const listRef = useRef<Service[]>(list);
+    listRef.current = list;
+
     const mapRow = (raw: unknown): Service => {
         const r = raw as Record<string, unknown>;
         return {
@@ -923,7 +927,7 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     };
 
     const reloadServices = () =>
-        apiGet<unknown[]>("/api/services")
+        apiGet<unknown[]>("/api/services?all=1")
             .then(rows => setList(rows.map(mapRow)))
             .catch(err => { console.error("reloadServices error:", err); });
 
@@ -966,18 +970,9 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
             : s));
     };
 
-    const removeProduct = async (serviceId: string, productId: string) => {
-        // If it has a real numeric ID (exists in DB), delete it immediately from the API
-        const service = list.find(s => s.id === serviceId);
-        if (!productId.startsWith("p") && !isNaN(Number(productId)) && Number(productId) > 0) {
-            const serviceSlug = service?.slug || serviceId;
-            try {
-                await apiDelete(`/api/services/${serviceSlug}/products/${productId}`);
-            } catch (e) {
-                onSave("Error al eliminar producto: " + String(e));
-                return; // Don't remove from UI if DB delete failed
-            }
-        }
+    // Only remove from local state — the sync endpoint does a full replace,
+    // so we don't need to delete individual products from the DB here.
+    const removeProduct = (serviceId: string, productId: string) => {
         setList(prev => prev.map(s => s.id === serviceId
             ? { ...s, products: (s.products ?? []).filter(p => p.id !== productId) }
             : s));
@@ -986,7 +981,10 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const handleSave = async () => {
         setSaving(true);
         try {
-            for (const s of list) {
+            // Read the LATEST state via ref to avoid stale closure issues
+            const currentList = listRef.current;
+
+            for (const s of currentList) {
                 const body = {
                     name: s.name, description: s.description,
                     icon: s.image_url, active: s.active, sort_order: s.order,
@@ -1003,6 +1001,10 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                         || `servicio-${Date.now()}`;
                     const created = await apiPost<{ slug?: string; id?: string }>("/api/services", { slug: autoSlug, ...body });
                     serviceSlug = String(created.slug ?? created.id ?? autoSlug);
+
+                    // Update local state so a second save won't try to create it again
+                    const newId = String(created.id ?? serviceSlug);
+                    setList(prev => prev.map(x => x.id === s.id ? { ...x, id: newId, slug: serviceSlug } : x));
                 } else {
                     await apiPut(`/api/services/${serviceSlug}`, body);
                 }

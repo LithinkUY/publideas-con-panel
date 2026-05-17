@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url);
+    const showAll = searchParams.get("all") === "1";
     const rows = await sql`
         SELECT s.*,
             COALESCE(
@@ -25,7 +27,7 @@ export async function GET() {
             ) AS products
         FROM services s
         LEFT JOIN service_products sp ON sp.service_slug = s.slug
-        WHERE s.active = true
+        WHERE (${showAll} OR s.active = true)
         GROUP BY s.id
         ORDER BY s.sort_order
     `;
@@ -34,10 +36,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
     const body = await req.json();
-    const { slug, name, description, icon, color, sort_order } = body;
+    const { slug, name, description, icon, color, sort_order, active } = body;
     const rows = await sql`
-        INSERT INTO services (slug, name, description, icon, sort_order)
-        VALUES (${slug}, ${name}, ${description ?? ""}, ${icon ?? ""}, ${sort_order ?? 0})
+        INSERT INTO services (slug, name, description, icon, sort_order, active, color)
+        VALUES (${slug}, ${name}, ${description ?? ""}, ${icon ?? ""}, ${sort_order ?? 0}, ${active ?? true}, ${color ?? "#1a2a3a"})
         RETURNING *
     `;
     return NextResponse.json(rows[0], { status: 201 });
