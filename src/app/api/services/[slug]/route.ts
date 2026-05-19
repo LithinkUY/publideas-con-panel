@@ -25,21 +25,29 @@ export async function PUT(req: Request, { params }: { params: Promise<{ slug: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
     const errors: string[] = [];
+    
+    // Fetch service first to get its unique ID
+    const services = await sql`SELECT id FROM services WHERE slug = ${slug}`;
+    if (services.length === 0) {
+        return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+    const serviceId = services[0].id;
+
     try {
         await sql`
             DELETE FROM product_variants
-            WHERE product_id IN (SELECT id FROM service_products WHERE service_slug=${slug})
+            WHERE product_id IN (SELECT id FROM service_products WHERE service_id = ${serviceId})
         `;
     } catch (e) {
         errors.push("product_variants: " + String(e));
     }
     try {
-        await sql`DELETE FROM service_products WHERE service_slug=${slug}`;
+        await sql`DELETE FROM service_products WHERE service_id = ${serviceId}`;
     } catch (e) {
         errors.push("service_products: " + String(e));
     }
     try {
-        await sql`DELETE FROM services WHERE slug=${slug}`;
+        await sql`DELETE FROM services WHERE id = ${serviceId}`;
     } catch (e) {
         errors.push("services: " + String(e));
         return NextResponse.json({ ok: false, errors }, { status: 500 });

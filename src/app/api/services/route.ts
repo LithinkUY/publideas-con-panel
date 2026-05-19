@@ -11,7 +11,7 @@ export async function GET(req: Request) {
             COALESCE(
                 json_agg(
                     json_build_object(
-                        'id', sp.id, 'service_slug', sp.service_slug,
+                        'id', sp.id, 'service_slug', s.slug,
                         'name', sp.name, 'description', sp.description,
                         'price', sp.price, 'unit', sp.unit, 'active', sp.active,
                         'sort_order', sp.sort_order, 'image_url', sp.image_url,
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
                 ) FILTER (WHERE sp.id IS NOT NULL), '[]'
             ) AS products
         FROM services s
-        LEFT JOIN service_products sp ON sp.service_slug = s.slug
+        LEFT JOIN service_products sp ON sp.service_id = s.id
         WHERE (${showAll} OR s.active = true)
         GROUP BY s.id
         ORDER BY s.sort_order
@@ -37,10 +37,24 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
     const body = await req.json();
     const { slug, name, description, icon, color, sort_order, active } = body;
+    
+    // Ensure slug is unique before inserting
+    let finalSlug = slug;
+    let count = 1;
+    while (true) {
+        const existing = await sql`SELECT id FROM services WHERE slug = ${finalSlug}`;
+        if (existing.length === 0) {
+            break;
+        }
+        finalSlug = `${slug}-${count}`;
+        count++;
+    }
+
     const rows = await sql`
         INSERT INTO services (slug, name, description, icon, sort_order, active, color)
-        VALUES (${slug}, ${name}, ${description ?? ""}, ${icon ?? ""}, ${sort_order ?? 0}, ${active ?? true}, ${color ?? "#1a2a3a"})
+        VALUES (${finalSlug}, ${name}, ${description ?? ""}, ${icon ?? ""}, ${sort_order ?? 0}, ${active ?? true}, ${color ?? "#1a2a3a"})
         RETURNING *
     `;
     return NextResponse.json(rows[0], { status: 201 });
 }
+

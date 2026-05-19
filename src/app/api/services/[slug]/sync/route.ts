@@ -18,24 +18,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
         }[]
     };
 
+    // Fetch the service first to get its actual ID
+    const services = await sql`SELECT id FROM services WHERE slug = ${slug}`;
+    if (services.length === 0) {
+        return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+    const serviceId = services[0].id;
+
     // 1. Delete variant associations for all products of this service
     await sql`
         DELETE FROM product_variants
-        WHERE product_id IN (SELECT id FROM service_products WHERE service_slug = ${slug})
+        WHERE product_id IN (SELECT id FROM service_products WHERE service_id = ${serviceId})
     `;
 
     // 2. Delete all products for this service
-    await sql`DELETE FROM service_products WHERE service_slug = ${slug}`;
+    await sql`DELETE FROM service_products WHERE service_id = ${serviceId}`;
 
     // 3. Re-insert every product from the current UI state
     const inserted = [];
     for (const p of products ?? []) {
         const rows = await sql`
             INSERT INTO service_products
-                (service_slug, name, description, price, unit, active, sort_order,
+                (service_id, service_slug, name, description, price, unit, active, sort_order,
                  image_url, price_visible, calculator_enabled, price_per_m2, details)
             VALUES (
-                ${slug}, ${p.name}, ${p.description ?? ""},
+                ${serviceId}, ${slug}, ${p.name}, ${p.description ?? ""},
                 ${p.price ?? null}, ${p.unit ?? "unidad"},
                 ${p.active ?? true}, ${p.sort_order ?? 0},
                 ${p.image_url ?? null}, ${p.price_visible ?? true},
