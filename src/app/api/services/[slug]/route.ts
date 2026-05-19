@@ -24,6 +24,21 @@ export async function PUT(req: Request, { params }: { params: Promise<{ slug: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
-    await sql`DELETE FROM services WHERE slug=${slug}`;
+    
+    const services = await sql`SELECT id FROM services WHERE slug = ${slug}`;
+    if (services.length === 0) {
+        return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+    const serviceId = services[0].id;
+
+    // Delete associated variants first to avoid foreign key violations
+    await sql`
+        DELETE FROM product_variants
+        WHERE product_id IN (SELECT id FROM service_products WHERE service_id = ${serviceId})
+    `;
+
+    // Delete the service (service_products will be cascade-deleted by DB)
+    await sql`DELETE FROM services WHERE id = ${serviceId}`;
+    
     return NextResponse.json({ ok: true });
 }

@@ -883,8 +883,7 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        apiGet<Variant[]>("/api/variants").then(setAllVariants).catch(() => { });
+    const reloadServices = () =>
         apiGet<unknown[]>("/api/services")
             .then(rows => setList(rows.map(raw => {
                 const r = raw as Record<string, unknown>;
@@ -920,6 +919,10 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                 };
             })))
             .catch(() => setList(mockServices));
+
+    useEffect(() => {
+        apiGet<Variant[]>("/api/variants").then(setAllVariants).catch(() => { });
+        reloadServices();
     }, []);
 
     const updateField = (id: string, field: keyof Service, value: unknown) => {
@@ -983,39 +986,34 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                         || `servicio-${Date.now()}`;
                     const created = await apiPost<{ slug?: string; id?: string }>("/api/services", { slug: autoSlug, ...body });
                     serviceSlug = String(created.slug ?? created.id ?? autoSlug);
-                    // Update local state so next saves use the real slug
-                    setList(prev => prev.map(x => x.id === s.id ? { ...x, slug: serviceSlug } : x));
+                    // Update local state so next saves use the real slug and ID
+                    const newId = String(created.id ?? serviceSlug);
+                    setList(prev => prev.map(x => x.id === s.id ? { ...x, id: newId, slug: serviceSlug } : x));
                 } else {
                     await apiPut(`/api/services/${serviceSlug}`, body);
                 }
 
-                // Save each product
-                for (const p of s.products ?? []) {
-                    const productBody = {
+                // Full sync: send entire product list, server replaces everything
+                await apiPost(`/api/services/${serviceSlug}/sync`, {
+                    products: (s.products ?? []).map((p, i) => ({
                         name: p.name, description: p.description ?? "",
                         price: p.price ?? null, unit: p.unit ?? "unidad",
-                        active: p.active, sort_order: p.sort_order ?? p.order ?? 0,
+                        active: p.active, sort_order: i,
                         image_url: p.image_url ?? null,
                         price_visible: p.price_visible ?? true,
                         calculator_enabled: p.calculator_enabled ?? false,
                         price_per_m2: p.price_per_m2 ?? null,
                         details: p.details ?? [],
                         variant_ids: p.variant_ids ?? [],
-                    };
-                    const numId = Number(p.id);
-                    const isNewProduct = p.id.startsWith("p") || isNaN(numId) || numId <= 0;
-                    if (!isNewProduct) {
-                        await apiPut(`/api/services/${serviceSlug}/products/${p.id}`, productBody);
-                    } else {
-                        await apiPost(`/api/services/${serviceSlug}/products`, productBody);
-                    }
-                }
+                    })),
+                });
             }
             onSave("Servicios y productos guardados ✓");
         } catch (e) {
             onSave("Error al guardar: " + String(e));
         } finally {
             setSaving(false);
+            await reloadServices();
         }
     };
 
@@ -1063,7 +1061,17 @@ function ServicesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                             <button onClick={() => updateField(s.id, "active", !s.active)} className={s.active ? "text-green-400" : "text-white/20"}>
                                 {s.active ? <CheckCircle size={18} /> : <XCircle size={18} />}
                             </button>
-                            <button onClick={() => setList(prev => prev.filter(x => x.id !== s.id))} className="text-white/20 hover:text-red-400">
+                            <button onClick={async () => {
+                                if (s.slug && !s.id.startsWith("new_")) {
+                                    try {
+                                        await apiDelete(`/api/services/${s.slug}`);
+                                    } catch (e) {
+                                        onSave("Error al eliminar servicio: " + String(e));
+                                        return;
+                                    }
+                                }
+                                setList(prev => prev.filter(x => x.id !== s.id));
+                            }} className="text-white/20 hover:text-red-400">
                                 <Trash2 size={15} />
                             </button>
                         </div>
