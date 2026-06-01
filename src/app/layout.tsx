@@ -31,6 +31,14 @@ export async function generateMetadata(): Promise<Metadata> {
       title: seo.meta_title,
       description: seo.meta_description,
       siteName: seo.meta_title.split("|")[0]?.trim() || "Publideas",
+      images: [
+        {
+          url: "https://publideas.com.uy/og-image.jpg", // Idealmente reemplazar por el logo
+          width: 1200,
+          height: 630,
+          alt: seo.meta_title,
+        }
+      ]
     },
     twitter: {
       card: "summary_large_image",
