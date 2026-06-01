@@ -82,6 +82,22 @@ export interface SiteConfig {
     updated_at?: string;
 }
 
+export interface SeoConfig {
+    meta_title: string;
+    meta_description: string;
+    meta_keywords: string;
+    ga_id: string; // Google Analytics ID (e.g. G-XXXX)
+    meta_pixel_id: string; // Meta Pixel ID (e.g. 123456789)
+}
+
+export const defaultSeoConfig: SeoConfig = {
+    meta_title: "Publideas | Imprenta, Diseño y Cartelería en Uruguay",
+    meta_description: "Soluciones gráficas integrales: imprenta digital, diseño gráfico, gigantografías, y cartelería para tu negocio en Uruguay.",
+    meta_keywords: "imprenta, diseño gráfico, cartelería, Uruguay, impresión digital",
+    ga_id: "",
+    meta_pixel_id: "",
+};
+
 export interface NavItem {
     label: string;
     href: string;

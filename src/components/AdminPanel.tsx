@@ -6,7 +6,7 @@ import {
     Edit3, Plus, Trash2, Eye, CheckCircle, XCircle, Upload,
     Image as ImageIcon, Video, FileText, Menu as MenuIcon,
     Palette, ChevronDown, ChevronUp, GripVertical, Globe, Layers, Link, Tag,
-    DollarSign, Percent, CreditCard, Building2, Banknote, ToggleLeft, ToggleRight, Truck, Calendar, Clock, Loader2,
+    DollarSign, Percent, CreditCard, Building2, Banknote, ToggleLeft, ToggleRight, Truck, Calendar, Clock, Loader2, Activity
 } from "lucide-react";
 import {
     SiteConfig, Service, ServiceProduct, ProductDetail, Variant, PricingConfig,
@@ -107,6 +107,7 @@ const ADMIN_SECTIONS = [
     { id: "paginas", label: "Paginas", icon: FileText },
     { id: "sitio", label: "Portada / Hero", icon: Globe },
     { id: "footer", label: "Footer", icon: Link },
+    { id: "seo", label: "SEO & Tracking", icon: Activity },
 ];
 
 // ── Dashboard ─────────────────────────────────────────────────
@@ -3151,6 +3152,120 @@ function FooterAdmin({ onSave }: { onSave: (msg: string) => void }) {
 }
 
 // ── Panel Admin principal ─────────────────────────────────────
+import { SeoConfig, defaultSeoConfig } from "@/lib/types";
+
+function SeoAdmin({ onSave }: { onSave: (m: string) => void }) {
+    const [cfg, setCfg] = useState<SeoConfig>(defaultSeoConfig);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        apiGet<SeoConfig | null>("/api/config?key=seoconfig")
+            .then(val => val && setCfg(val))
+            .catch(() => {});
+    }, []);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await apiPut("/api/config", { key: "seoconfig", value: cfg });
+            onSave("Configuración SEO guardada con éxito");
+        } catch (e) {
+            onSave("Error al guardar SEO");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="max-w-2xl space-y-6">
+            <div className="portal-card space-y-4">
+                <h3 className="text-sm font-semibold text-white/70 flex items-center gap-2">
+                    <Activity size={16} className="text-[#00CFFF]" />
+                    Configuración de SEO (Google)
+                </h3>
+                <p className="text-[10px] text-white/40 mb-4">Estas etiquetas definen cómo se ve tu sitio en los resultados de Google y cuando lo compartes en redes sociales.</p>
+                
+                <div>
+                    <label className="text-[10px] text-white/40 mb-1 block">Título de la página (Meta Title)</label>
+                    <input
+                        value={cfg.meta_title}
+                        onChange={e => setCfg({ ...cfg, meta_title: e.target.value })}
+                        className="dark-input w-full text-sm"
+                        placeholder="Ej: Publideas | Imprenta y Diseño en Uruguay"
+                    />
+                </div>
+                
+                <div>
+                    <label className="text-[10px] text-white/40 mb-1 block">Descripción (Meta Description)</label>
+                    <textarea
+                        value={cfg.meta_description}
+                        onChange={e => setCfg({ ...cfg, meta_description: e.target.value })}
+                        rows={3}
+                        className="dark-input w-full text-sm resize-none"
+                        placeholder="Descripción corta de lo que ofrece tu negocio..."
+                    />
+                </div>
+                
+                <div>
+                    <label className="text-[10px] text-white/40 mb-1 block">Palabras Clave (Keywords separadas por coma)</label>
+                    <input
+                        value={cfg.meta_keywords}
+                        onChange={e => setCfg({ ...cfg, meta_keywords: e.target.value })}
+                        className="dark-input w-full text-sm"
+                        placeholder="imprenta, diseño, montevideo, cartelería"
+                    />
+                </div>
+
+                {/* Vista previa SEO */}
+                <div className="mt-4 p-4 border border-[#2a2a2a] rounded-xl bg-black">
+                    <p className="text-[10px] text-white/30 mb-2 uppercase tracking-wider">Vista Previa en Google</p>
+                    <p className="text-blue-400 text-lg font-medium cursor-pointer hover:underline truncate">{cfg.meta_title || "Título de la página"}</p>
+                    <p className="text-green-700/80 text-xs mb-1">https://tusitio.com.uy</p>
+                    <p className="text-white/60 text-sm line-clamp-2">{cfg.meta_description || "Descripción de la página que aparecerá en los resultados de búsqueda."}</p>
+                </div>
+            </div>
+
+            <div className="portal-card space-y-4">
+                <h3 className="text-sm font-semibold text-white/70 flex items-center gap-2">
+                    <Globe size={16} className="text-[#E91E8C]" />
+                    Píxeles de Seguimiento (Tracking)
+                </h3>
+                <p className="text-[10px] text-white/40 mb-4">Ingresa tus IDs. El sistema inyectará los códigos automáticamente en toda la web.</p>
+                
+                <div>
+                    <label className="text-[10px] text-white/40 mb-1 block">Google Analytics ID</label>
+                    <input
+                        value={cfg.ga_id}
+                        onChange={e => setCfg({ ...cfg, ga_id: e.target.value })}
+                        className="dark-input w-full font-mono text-sm"
+                        placeholder="G-XXXXXXXXXX"
+                    />
+                    <p className="text-[10px] text-emerald-400/70 mt-1">Si lo dejas vacío, el código de Google no se inyectará.</p>
+                </div>
+                
+                <div>
+                    <label className="text-[10px] text-white/40 mb-1 block">Meta Pixel ID (Facebook / Instagram)</label>
+                    <input
+                        value={cfg.meta_pixel_id}
+                        onChange={e => setCfg({ ...cfg, meta_pixel_id: e.target.value })}
+                        className="dark-input w-full font-mono text-sm"
+                        placeholder="123456789012345"
+                    />
+                    <p className="text-[10px] text-emerald-400/70 mt-1">Ingresa solo el número (ID) del píxel.</p>
+                </div>
+            </div>
+
+            <button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full py-3 rounded-xl bg-[#00CFFF] text-black text-sm font-bold hover:bg-[#00CFFF]/90 transition-colors disabled:opacity-50"
+            >
+                {saving ? "Guardando..." : "Guardar SEO & Tracking"}
+            </button>
+        </div>
+    );
+}
+
 export default function AdminPanel() {
     const [authed, setAuthed] = useState(false);
     const [pwInput, setPwInput] = useState("");
@@ -3208,6 +3323,7 @@ export default function AdminPanel() {
         paginas: <PagesAdmin onSave={showToast} />,
         sitio: <SiteConfigAdmin onSave={showToast} />,
         footer: <FooterAdmin onSave={showToast} />,
+        seo: <SeoAdmin onSave={showToast} />,
     };
 
     const currentItem = ADMIN_SECTIONS.find(s => s.id === active);
