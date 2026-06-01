@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SiteConfig } from "@/lib/types";
@@ -113,7 +113,7 @@ export default function HeroSection() {
                         </div>
                         {lines[1] && (
                             <div className="overflow-hidden">
-                                <h1 className="text-5xl md:text-7xl font-black uppercase leading-[0.95] text-white"
+                                <div className="text-5xl md:text-7xl font-black uppercase leading-[0.95] text-white"
                                     style={{
                                         clipPath: line2Visible ? "inset(0 0% 0 0)" : "inset(0 100% 0 0)",
                                         opacity: line2Visible ? 1 : 0,
@@ -121,7 +121,7 @@ export default function HeroSection() {
                                         textShadow: "0 2px 40px rgba(0,0,0,0.8)",
                                     }}>
                                     {lines[1]}
-                                </h1>
+                                </div>
                             </div>
                         )}
                     </div>
