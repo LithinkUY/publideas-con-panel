@@ -1,6 +1,9 @@
 "use client";
 import React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
+
+const JoditEditor = dynamic(() => import("jodit-react"), { ssr: false });
 import {
     LayoutDashboard, Users, Package, Settings, ChevronRight,
     Edit3, Plus, Trash2, Eye, CheckCircle, XCircle, Upload,
@@ -1471,14 +1474,21 @@ function PagesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                             <span className="text-xs text-white/60">Mostrar en menu</span>
                         </label>
                     </div>
-                    <div>
-                        <label className="text-xs text-white/40 mb-1 block font-semibold tracking-wider">CONTENIDO (Markdown soportado)</label>
-                        <textarea
+                    <div className="text-black">
+                        <label className="text-xs text-white/40 mb-1 block font-semibold tracking-wider">CONTENIDO</label>
+                        <JoditEditor
                             value={editing.content}
-                            onChange={e => setEditing({ ...editing, content: e.target.value })}
-                            rows={16}
-                            className="dark-input resize-y font-mono text-xs leading-relaxed"
-                            placeholder="# Titulo&#10;&#10;Contenido..."
+                            config={{
+                                theme: "dark",
+                                placeholder: "Escribe el contenido de la página aquí...",
+                                language: "es",
+                                showXPathInStatusbar: false,
+                                showCharsCounter: false,
+                                showWordsCounter: false,
+                                toolbarAdaptive: false,
+                                buttons: "source,|,bold,strikethrough,underline,italic,|,superscript,subscript,|,ul,ol,|,outdent,indent,|,font,fontsize,brush,paragraph,|,image,video,table,link,|,align,undo,redo,\n,cut,hr,eraser,copyformat,|,symbol,fullsize,print,about"
+                            }}
+                            onBlur={newContent => setEditing({ ...editing, content: newContent })}
                         />
                     </div>
                     <div className="flex gap-3">
