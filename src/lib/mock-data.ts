@@ -1,5 +1,5 @@
 // Datos de muestra (mock) para desarrollo sin Supabase aún
-import { SiteConfig, Service, Order, Client, PendingPayment, Page } from "./types";
+import { SiteConfig, Service, Order, Client, PendingPayment, Page, GalleryConfig } from "./types";
 
 export const mockSiteConfig: SiteConfig = {
     logo_text: "",
@@ -21,6 +21,7 @@ export const mockSiteConfig: SiteConfig = {
     nav_items: [
         { label: "RETIRÁ AQUÍ", href: "/retiro" },
         { label: "HACÉ TU PEDIDO", href: "/pedido" },
+        { label: "GALERÍA", href: "/galeria" },
         {
             label: "RECURSOS",
             href: "#",
@@ -120,3 +121,15 @@ export const mockPages: Page[] = [
     { id: "pg2", title: "Preguntas frecuentes", slug: "faq", content: "# Preguntas frecuentes\n\n**¿Cuáles son los tiempos de entrega?**\nDepende del tipo de trabajo...", active: true, show_in_menu: false, created_at: "2026-01-01", updated_at: "2026-01-01" },
     { id: "pg3", title: "Contacto", slug: "contacto", content: "# Contacto\n\nPodés contactarnos por WhatsApp o email.", active: true, show_in_menu: true, created_at: "2026-01-01", updated_at: "2026-01-01" },
 ];
+
+export const mockGallery: GalleryConfig = {
+    categories: [
+        { id: "cat1", name: "Lonas", order: 1 },
+        { id: "cat2", name: "Vehículos", order: 2 },
+        { id: "cat3", name: "Letras Corpóreas", order: 3 },
+    ],
+    items: [
+        { id: "g1", category_id: "cat1", image_url: "/img/services/impresion.jpg", title: "Lona publicitaria", order: 1, created_at: "2026-01-01" },
+        { id: "g2", category_id: "cat2", image_url: "/img/services/granformato.jpg", title: "Ploteo Vehicular", order: 2, created_at: "2026-01-01" },
+    ]
+};

@@ -62,6 +62,28 @@ export interface Page {
     updated_at: string;
 }
 
+// ── Galería de Trabajos ───────────────────────────────────────
+export interface GalleryCategory {
+    id: string;
+    name: string;
+    order: number;
+}
+
+export interface GalleryItem {
+    id: string;
+    category_id: string;
+    image_url: string;
+    title?: string;
+    description?: string;
+    order: number;
+    created_at: string;
+}
+
+export interface GalleryConfig {
+    categories: GalleryCategory[];
+    items: GalleryItem[];
+}
+
 export interface SiteConfig {
     id?: string;
     logo_text: string;

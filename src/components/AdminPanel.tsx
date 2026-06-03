@@ -14,10 +14,11 @@ import {
 import {
     SiteConfig, Service, ServiceProduct, ProductDetail, Variant, PricingConfig,
     defaultPricingConfig, Page, ORDER_STATUS_LABELS, ORDER_STATUS_COLORS,
+    GalleryConfig, GalleryCategory, GalleryItem
 } from "@/lib/types";
 import { formatBoth, variantPriceLabel } from "@/lib/pricing";
 import {
-    mockSiteConfig, mockServices, mockPages,
+    mockSiteConfig, mockServices, mockPages, mockGallery
 } from "@/lib/mock-data";
 import {
     ProcessConfig, ProcessStep, defaultProcessConfig,
@@ -108,6 +109,7 @@ const ADMIN_SECTIONS = [
     { id: "logo", label: "Logo", icon: Palette },
     { id: "menu", label: "Menu de Navegacion", icon: MenuIcon },
     { id: "paginas", label: "Paginas", icon: FileText },
+    { id: "galeria", label: "Galeria de Trabajos", icon: ImageIcon },
     { id: "sitio", label: "Portada / Hero", icon: Globe },
     { id: "footer", label: "Footer", icon: Link },
     { id: "seo", label: "SEO & Tracking", icon: Activity },
@@ -1547,6 +1549,160 @@ function PagesAdmin({ onSave }: { onSave: (msg: string) => void }) {
                     </tbody>
                 </table>
             </div>
+        </div>
+    );
+}
+
+// ── Galería Admin ──────────────────────────────────────────────
+function GalleryAdmin({ onSave }: { onSave: (msg: string) => void }) {
+    const [cfg, setCfg] = useState<GalleryConfig>(mockGallery);
+    const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState<string | null>(null);
+
+    useEffect(() => {
+        apiGet<GalleryConfig | null>("/api/config?key=gallery")
+            .then(val => val && setCfg(val))
+            .catch(() => {});
+    }, []);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await apiPut("/api/config", { key: "gallery", value: cfg });
+            onSave("Galería guardada ✓");
+        } catch (e) {
+            onSave("Error: " + String(e));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const addCategory = () => {
+        const id = `cat_${Date.now()}`;
+        setCfg({ ...cfg, categories: [...cfg.categories, { id, name: "Nueva Categoría", order: cfg.categories.length + 1 }] });
+    };
+
+    const updateCategory = (id: string, name: string) => {
+        setCfg({ ...cfg, categories: cfg.categories.map(c => c.id === id ? { ...c, name } : c) });
+    };
+
+    const removeCategory = (id: string) => {
+        setCfg({ 
+            ...cfg, 
+            categories: cfg.categories.filter(c => c.id !== id),
+            items: cfg.items.filter(i => i.category_id !== id) // elimina imgs de esa categoria
+        });
+    };
+
+    const handleImageUpload = async (catId: string, file: File) => {
+        setUploading(catId);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("type", "gallery");
+            const res = await fetch("/api/upload", { method: "POST", body: fd });
+            if (!res.ok) throw new Error("Error upload");
+            const { url } = await res.json();
+            
+            setCfg(prev => ({
+                ...prev,
+                items: [...prev.items, {
+                    id: `g_${Date.now()}`,
+                    category_id: catId,
+                    image_url: url,
+                    title: "",
+                    order: prev.items.filter(i => i.category_id === catId).length + 1,
+                    created_at: new Date().toISOString()
+                }]
+            }));
+        } catch (e) {
+            onSave("Error al subir imagen");
+        } finally {
+            setUploading(null);
+        }
+    };
+
+    const updateItemTitle = (id: string, title: string) => {
+        setCfg({ ...cfg, items: cfg.items.map(i => i.id === id ? { ...i, title } : i) });
+    };
+
+    const removeItem = (id: string) => {
+        setCfg({ ...cfg, items: cfg.items.filter(i => i.id !== id) });
+    };
+
+    return (
+        <div className="max-w-4xl space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-sm font-semibold text-white/70">Galería de Trabajos</h3>
+                    <p className="text-xs text-white/40 mt-1">Crea categorías y sube imágenes de trabajos realizados.</p>
+                </div>
+                <button onClick={addCategory} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#00CFFF]/10 text-[#00CFFF] text-xs font-semibold hover:bg-[#00CFFF]/20 transition-colors">
+                    <Plus size={14} /> Nueva Categoría
+                </button>
+            </div>
+
+            <div className="space-y-4">
+                {cfg.categories.map((cat) => {
+                    const catItems = cfg.items.filter(i => i.category_id === cat.id);
+                    return (
+                        <div key={cat.id} className="portal-card space-y-4">
+                            <div className="flex items-center gap-3">
+                                <GripVertical size={14} className="text-white/20" />
+                                <input 
+                                    value={cat.name} 
+                                    onChange={e => updateCategory(cat.id, e.target.value)} 
+                                    className="dark-input flex-1 py-1.5 font-bold" 
+                                    placeholder="Nombre de la categoría" 
+                                />
+                                <button onClick={() => removeCategory(cat.id)} className="text-white/30 hover:text-red-400 p-2">
+                                    <Trash2 size={15} />
+                                </button>
+                            </div>
+
+                            <div className="bg-[#111] p-4 rounded-xl border border-[#2a2a2a]">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {catItems.map(item => (
+                                        <div key={item.id} className="group relative rounded-lg border border-[#3a3a3a] overflow-hidden bg-black aspect-square flex flex-col">
+                                            <div className="relative flex-1 overflow-hidden">
+                                                <img src={item.image_url} className="w-full h-full object-cover" alt="" />
+                                                <button onClick={() => removeItem(item.id)} className="absolute top-2 right-2 w-6 h-6 bg-red-500/80 text-white rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <XCircle size={14} />
+                                                </button>
+                                            </div>
+                                            <div className="p-1.5 bg-[#1a1a1a] border-t border-[#3a3a3a]">
+                                                <input 
+                                                    value={item.title || ""} 
+                                                    onChange={e => updateItemTitle(item.id, e.target.value)} 
+                                                    className="w-full bg-transparent text-[10px] text-white/70 outline-none text-center" 
+                                                    placeholder="Sin título" 
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* Upload Button */}
+                                    <label className="cursor-pointer border-2 border-dashed border-[#3a3a3a] rounded-lg aspect-square flex flex-col items-center justify-center text-white/30 hover:text-[#E91E8C] hover:border-[#E91E8C]/50 transition-colors">
+                                        {uploading === cat.id ? <Loader2 size={20} className="animate-spin mb-2" /> : <Upload size={20} className="mb-2" />}
+                                        <span className="text-[10px] font-bold text-center px-2">Subir imagen</span>
+                                        <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleImageUpload(cat.id, e.target.files[0])} />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+
+                {cfg.categories.length === 0 && (
+                    <div className="text-center py-10 border border-dashed border-[#3a3a3a] rounded-xl text-white/30 text-sm">
+                        No hay categorías aún. Creá una para empezar a subir imágenes.
+                    </div>
+                )}
+            </div>
+
+            <button onClick={handleSave} disabled={saving} className="w-full py-3 rounded-lg bg-[#00CFFF] text-black text-sm font-bold hover:bg-[#00CFFF]/90 transition-colors disabled:opacity-50">
+                {saving ? "Guardando..." : "Guardar Galería"}
+            </button>
         </div>
     );
 }
@@ -3331,6 +3487,7 @@ export default function AdminPanel() {
         logo: <LogoAdmin onSave={showToast} />,
         menu: <MenuAdmin onSave={showToast} />,
         paginas: <PagesAdmin onSave={showToast} />,
+        galeria: <GalleryAdmin onSave={showToast} />,
         sitio: <SiteConfigAdmin onSave={showToast} />,
         footer: <FooterAdmin onSave={showToast} />,
         seo: <SeoAdmin onSave={showToast} />,
