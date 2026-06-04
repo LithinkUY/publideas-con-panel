@@ -72,7 +72,9 @@ export async function POST(req: NextRequest) {
                     type === "favicon" ? "favicon" :
                         "media";
 
-        const filename = `${slug}-${Date.now()}.${ext}`;
+        const randomStr = Math.random().toString(36).substring(2, 8);
+        const uniqueId = `${slug}-${Date.now()}-${randomStr}`;
+        const filename = `${uniqueId}.${ext}`;
         const isVideo = file.type.startsWith("video/");
         const useCloudinary = !!process.env.CLOUDINARY_URL;
 
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
                     type === "favicon" ? "favicon" :
                         "media";
             const resourceType = isVideo ? "video" : "image";
-            url = await uploadToCloudinary(buffer, slug, folder, resourceType);
+            url = await uploadToCloudinary(buffer, uniqueId, folder, resourceType);
         } else {
             // Desarrollo local → filesystem
             url = await uploadToLocal(buffer, filename, type);
