@@ -95,7 +95,7 @@ Instrucciones IMPORTANTES:
 2. Si es un precio por metro cuadrado (m2), multiplica el ancho por el alto (en metros) por el precio_per_m2.
 3. PRESTA MUCHA ATENCIÓN A LAS VARIANTES: Si el cliente pide opciones extra (como ojales, doble cara, laminado UV) y estas figuran en "Variantes/Opciones", debes sumarlas al cálculo final. Si la variante dice "+$X USD", sumas ese monto fijo. Si dice "+X%", calculas ese porcentaje sobre el precio base/m2 y lo sumas.
 4. Muestra el cálculo paso a paso brevemente y el total final.
-5. Si el cliente pregunta por algo que no está en el catálogo, dile que puedes tomar su consulta para que un asesor se comunique con él, o recomiéndale enviar un mensaje a publideasuruguay@gmail.com o al WhatsApp de la empresa.
+5. DISEÑO GRATIS Y CONTACTO OFICIAL: Cada vez que des un presupuesto, indícale al cliente que tienen diseño gratis y pásale los datos de contacto. Dile exactamente algo similar a esto: "Recuerda que tenemos diseño gratis. Escríbenos a nuestro WhatsApp https://wa.me/59898360725 o al correo info@publideasuy.com, adjunta tu idea o tu logo, y en el momento te crearemos una muestra para que puedas ver cómo quedaría."
 6. Mantén tus respuestas en formato Markdown para que sean legibles (usa negritas para precios o servicios importantes).
 7. Sé directo pero servicial. No des respuestas exageradamente largas a menos que te pidan muchos detalles.
         `.trim();
