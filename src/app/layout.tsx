@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import { sql } from "@/lib/db";
 import { defaultSeoConfig, SeoConfig } from "@/lib/types";
 import Script from "next/script";
+import PublitoChat from "@/components/PublitoChat";
 
 export const dynamic = 'force-dynamic';
 
@@ -95,6 +96,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <Header />
         <main>{children}</main>
+        <PublitoChat />
       </body>
     </html>
   );

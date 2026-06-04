@@ -1,0 +1,122 @@
+import { NextResponse } from "next/server";
+import { sql } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+    try {
+        const body = await req.json();
+        const { messages } = body;
+
+        if (!messages || !Array.isArray(messages)) {
+            return NextResponse.json({ error: "No messages provided" }, { status: 400 });
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            console.error("GEMINI_API_KEY is not configured.");
+            return NextResponse.json({ error: "El asistente no está configurado correctamente." }, { status: 500 });
+        }
+
+        // 1. Fetch Context from DB (Services and Products)
+        const servicesRows = await sql`
+            SELECT s.name as service_name, s.description as service_desc,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'name', sp.name, 
+                            'desc', sp.description,
+                            'price', sp.price, 
+                            'unit', sp.unit,
+                            'price_per_m2', sp.price_per_m2
+                        )
+                    ) FILTER (WHERE sp.id IS NOT NULL), '[]'
+                ) AS products
+            FROM services s
+            LEFT JOIN service_products sp ON sp.service_id = s.id
+            WHERE s.active = true AND (sp.active = true OR sp.id IS NULL)
+            GROUP BY s.id
+            ORDER BY s.sort_order
+        `;
+
+        let servicesContext = "Catálogo de Servicios y Precios de Publideas:\n\n";
+        for (const s of servicesRows) {
+            servicesContext += `**Servicio: ${s.service_name}**\n`;
+            servicesContext += `Descripción: ${s.service_desc}\n`;
+            if (s.products && s.products.length > 0) {
+                servicesContext += `Productos:\n`;
+                for (const p of s.products) {
+                    servicesContext += `- ${p.name}: ${p.desc}. `;
+                    if (p.price != null) servicesContext += `Precio Base: $${p.price} USD x ${p.unit || 'unidad'}. `;
+                    if (p.price_per_m2 != null) servicesContext += `Precio por m2: $${p.price_per_m2} USD. `;
+                    servicesContext += `\n`;
+                }
+            } else {
+                servicesContext += `(No hay productos específicos listados, solicitar cotización).\n`;
+            }
+            servicesContext += `\n`;
+        }
+
+        // 2. Build System Prompt
+        const systemPrompt = `
+Eres Publito, el asistente virtual oficial de Publideas. Publideas es una empresa uruguaya especializada en impresión de gran formato, corte láser, sublimación, bordado computarizado, entre otros servicios de industrialización de producción publicitaria.
+Tu rol es ayudar a los clientes de forma amable, profesional y concisa. Responde siempre en español rioplatense (puedes usar "vos" y ser cercano pero respetuoso).
+
+Tienes acceso al siguiente catálogo de servicios y precios actuales de Publideas:
+${servicesContext}
+
+Instrucciones IMPORTANTES:
+1. Si el cliente te pide un presupuesto o calcular un precio, utiliza la información del catálogo. 
+2. Si es un precio por metro cuadrado (m2), multiplica el ancho por el alto (en metros) por el precio_per_m2. Muestra el cálculo paso a paso brevemente.
+3. Si el cliente pregunta por algo que no está en el catálogo, dile que puedes tomar su consulta para que un asesor se comunique con él, o recomiéndale enviar un mensaje a publideasuruguay@gmail.com o al WhatsApp de la empresa.
+4. Mantén tus respuestas en formato Markdown para que sean legibles (usa negritas para precios o servicios importantes).
+5. Sé directo pero servicial. No des respuestas exageradamente largas a menos que te pidan muchos detalles.
+        `.trim();
+
+        // 3. Format Messages for Gemini API
+        // Gemini expects contents: [{ role: 'user' | 'model', parts: [{ text: '...' }] }]
+        // The very first message will include the system prompt from the 'user' side conceptually, 
+        // but wait, Gemini Flash supports 'systemInstruction' property. Let's use systemInstruction if possible, 
+        // or just prepend it to the first user message.
+        
+        // According to Gemini API docs for generateContent:
+        // { system_instruction: { parts: { text: "..." } }, contents: [ ... ] }
+
+        const formattedContents = messages.map((m: any) => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }]
+        }));
+
+        const requestBody = {
+            systemInstruction: {
+                parts: [{ text: systemPrompt }]
+            },
+            contents: formattedContents,
+        };
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Gemini API Error:", errorText);
+            return NextResponse.json({ error: "Error de conexión con Publito. Intenta de nuevo más tarde." }, { status: response.status });
+        }
+
+        const data = await response.json();
+        
+        // Parse Gemini response
+        const assistantText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Lo siento, no pude procesar tu solicitud.";
+
+        return NextResponse.json({ content: assistantText });
+
+    } catch (error: any) {
+        console.error("[Chat API Error]", error);
+        return NextResponse.json({ error: "Ocurrió un error inesperado." }, { status: 500 });
+    }
+}
