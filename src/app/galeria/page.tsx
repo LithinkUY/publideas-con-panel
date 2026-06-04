@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import GalleryView from "@/components/GalleryView";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
     title: "Galería de Trabajos | Publideas",
     description: "Explora nuestra galería de trabajos realizados en impresión de gran formato, corte láser, sublimación y más.",

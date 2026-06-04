@@ -5,6 +5,8 @@ import { sql } from "@/lib/db";
 import { defaultSeoConfig, SeoConfig } from "@/lib/types";
 import Script from "next/script";
 
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata(): Promise<Metadata> {
   let seo = defaultSeoConfig;
   try {
