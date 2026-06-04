@@ -1594,27 +1594,40 @@ function GalleryAdmin({ onSave }: { onSave: (msg: string) => void }) {
         });
     };
 
-    const handleImageUpload = async (catId: string, file: File) => {
+    const handleImageUpload = async (catId: string, files: FileList | null) => {
+        if (!files || files.length === 0) return;
         setUploading(catId);
         try {
-            const fd = new FormData();
-            fd.append("file", file);
-            fd.append("type", "gallery");
-            const res = await fetch("/api/upload", { method: "POST", body: fd });
-            if (!res.ok) throw new Error("Error upload");
-            const { url } = await res.json();
-            
-            setCfg(prev => ({
-                ...prev,
-                items: [...prev.items, {
-                    id: `g_${Date.now()}`,
+            const fileArray = Array.from(files);
+            const newItems: GalleryItem[] = [];
+
+            for (let index = 0; index < fileArray.length; index++) {
+                const file = fileArray[index];
+                const fd = new FormData();
+                fd.append("file", file);
+                fd.append("type", "gallery");
+                const res = await fetch("/api/upload", { method: "POST", body: fd });
+                if (!res.ok) throw new Error("Error upload");
+                const { url } = await res.json();
+                
+                newItems.push({
+                    id: `g_${Date.now()}_${index}`,
                     category_id: catId,
                     image_url: url,
                     title: "",
-                    order: prev.items.filter(i => i.category_id === catId).length + 1,
+                    order: 0,
                     created_at: new Date().toISOString()
-                }]
-            }));
+                });
+            }
+            
+            setCfg(prev => {
+                const currentCount = prev.items.filter(i => i.category_id === catId).length;
+                const itemsWithOrder = newItems.map((it, idx) => ({ ...it, order: currentCount + idx + 1 }));
+                return {
+                    ...prev,
+                    items: [...prev.items, ...itemsWithOrder]
+                };
+            });
         } catch (e) {
             onSave("Error al subir imagen");
         } finally {
@@ -1685,7 +1698,7 @@ function GalleryAdmin({ onSave }: { onSave: (msg: string) => void }) {
                                     <label className="cursor-pointer border-2 border-dashed border-[#3a3a3a] rounded-lg aspect-square flex flex-col items-center justify-center text-white/30 hover:text-[#E91E8C] hover:border-[#E91E8C]/50 transition-colors">
                                         {uploading === cat.id ? <Loader2 size={20} className="animate-spin mb-2" /> : <Upload size={20} className="mb-2" />}
                                         <span className="text-[10px] font-bold text-center px-2">Subir imagen</span>
-                                        <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleImageUpload(cat.id, e.target.files[0])} />
+                                        <input type="file" multiple accept="image/*" className="hidden" onChange={e => handleImageUpload(cat.id, e.target.files)} />
                                     </label>
                                 </div>
                             </div>
