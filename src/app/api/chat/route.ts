@@ -28,7 +28,22 @@ export async function POST(req: Request) {
                             'desc', sp.description,
                             'price', sp.price, 
                             'unit', sp.unit,
-                            'price_per_m2', sp.price_per_m2
+                            'price_per_m2', sp.price_per_m2,
+                            'variants', (
+                                SELECT COALESCE(
+                                    json_agg(
+                                        json_build_object(
+                                            'name', v.name,
+                                            'price_type', v.price_type,
+                                            'price', v.price,
+                                            'price_percent', v.price_percent
+                                        )
+                                    ), '[]'::json
+                                )
+                                FROM product_variants pv
+                                JOIN variants v ON pv.variant_id = v.id
+                                WHERE pv.product_id = sp.id AND v.active = true
+                            )
                         )
                     ) FILTER (WHERE sp.id IS NOT NULL), '[]'
                 ) AS products
@@ -49,6 +64,16 @@ export async function POST(req: Request) {
                     servicesContext += `- ${p.name}: ${p.desc}. `;
                     if (p.price != null) servicesContext += `Precio Base: $${p.price} USD x ${p.unit || 'unidad'}. `;
                     if (p.price_per_m2 != null) servicesContext += `Precio por m2: $${p.price_per_m2} USD. `;
+                    if (p.variants && p.variants.length > 0) {
+                        servicesContext += `\n  - Variantes/Opciones: `;
+                        for (const v of p.variants) {
+                            if (v.price_type === 'fixed') {
+                                servicesContext += `[${v.name}: +$${v.price} USD] `;
+                            } else {
+                                servicesContext += `[${v.name}: +${v.price_percent}%] `;
+                            }
+                        }
+                    }
                     servicesContext += `\n`;
                 }
             } else {
@@ -67,10 +92,12 @@ ${servicesContext}
 
 Instrucciones IMPORTANTES:
 1. Si el cliente te pide un presupuesto o calcular un precio, utiliza la información del catálogo. 
-2. Si es un precio por metro cuadrado (m2), multiplica el ancho por el alto (en metros) por el precio_per_m2. Muestra el cálculo paso a paso brevemente.
-3. Si el cliente pregunta por algo que no está en el catálogo, dile que puedes tomar su consulta para que un asesor se comunique con él, o recomiéndale enviar un mensaje a publideasuruguay@gmail.com o al WhatsApp de la empresa.
-4. Mantén tus respuestas en formato Markdown para que sean legibles (usa negritas para precios o servicios importantes).
-5. Sé directo pero servicial. No des respuestas exageradamente largas a menos que te pidan muchos detalles.
+2. Si es un precio por metro cuadrado (m2), multiplica el ancho por el alto (en metros) por el precio_per_m2.
+3. PRESTA MUCHA ATENCIÓN A LAS VARIANTES: Si el cliente pide opciones extra (como ojales, doble cara, laminado UV) y estas figuran en "Variantes/Opciones", debes sumarlas al cálculo final. Si la variante dice "+$X USD", sumas ese monto fijo. Si dice "+X%", calculas ese porcentaje sobre el precio base/m2 y lo sumas.
+4. Muestra el cálculo paso a paso brevemente y el total final.
+5. Si el cliente pregunta por algo que no está en el catálogo, dile que puedes tomar su consulta para que un asesor se comunique con él, o recomiéndale enviar un mensaje a publideasuruguay@gmail.com o al WhatsApp de la empresa.
+6. Mantén tus respuestas en formato Markdown para que sean legibles (usa negritas para precios o servicios importantes).
+7. Sé directo pero servicial. No des respuestas exageradamente largas a menos que te pidan muchos detalles.
         `.trim();
 
         // 3. Format Messages for Gemini API
