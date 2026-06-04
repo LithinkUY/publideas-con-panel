@@ -82,13 +82,19 @@ Instrucciones IMPORTANTES:
         // According to Gemini API docs for generateContent:
         // { system_instruction: { parts: { text: "..." } }, contents: [ ... ] }
 
-        const formattedContents = messages.map((m: any) => ({
+        // Ensure the conversation starts with a 'user' message and alternates
+        let formattedContents = messages.map((m: any) => ({
             role: m.role === "assistant" ? "model" : "user",
             parts: [{ text: m.content }]
         }));
 
+        // Remove any leading 'model' messages because Gemini requires the first message to be from 'user'
+        while (formattedContents.length > 0 && formattedContents[0].role === "model") {
+            formattedContents.shift();
+        }
+
         const requestBody = {
-            systemInstruction: {
+            system_instruction: {
                 parts: [{ text: systemPrompt }]
             },
             contents: formattedContents,
