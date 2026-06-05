@@ -1,8 +1,8 @@
 import { MetadataRoute } from "next";
 import { headers } from "next/headers";
 
-export default function robots(): MetadataRoute.Robots {
-    const headersList = headers();
+export default async function robots(): Promise<MetadataRoute.Robots> {
+    const headersList = await headers();
     const host = headersList.get("host") || "publideasuy.com";
     const protocol = process.env.NODE_ENV === "development" || host.includes("localhost") ? "http" : "https";
     const baseUrl = `${protocol}://${host}`;
