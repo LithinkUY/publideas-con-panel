@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   return {
-    metadataBase: new URL("https://publideas.com.uy"),
+    metadataBase: new URL("https://publideasuy.com"),
     title: {
       default: seo.meta_title,
       template: "%s | " + (seo.meta_title.split("|")[0]?.trim() || "Publideas"),
@@ -36,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: seo.meta_title.split("|")[0]?.trim() || "Publideas",
       images: [
         {
-          url: "https://publideas.com.uy/og-image.jpg", // Idealmente reemplazar por el logo
+          url: "https://publideasuy.com/og-image.jpg", // Idealmente reemplazar por el logo
           width: 1200,
           height: 630,
           alt: seo.meta_title,
