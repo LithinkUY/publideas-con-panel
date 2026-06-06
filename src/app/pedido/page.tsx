@@ -53,6 +53,7 @@ export default function PedidoPage() {
     const [calcProduct, setCalcProduct] = useState<Product | null>(null);
     const [calcWidth, setCalcWidth] = useState("");
     const [calcHeight, setCalcHeight] = useState("");
+    const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
 
     useEffect(() => {
         fetch("/api/services")
@@ -131,13 +132,20 @@ export default function PedidoPage() {
         }
     };
 
+    const openDetails = (p: Product) => {
+        setCalcWidth("");
+        setCalcHeight("");
+        setDetailsProduct(p);
+    };
+
     // m2 calculator derived values
     const calcW = parseFloat(calcWidth) || 0;
     const calcH = parseFloat(calcHeight) || 0;
     const calcM2 = calcW > 0 && calcH > 0 ? calcW * calcH : 0;
-    const calcPrice = calcProduct
+    const activeProduct = calcProduct || detailsProduct;
+    const calcPrice = activeProduct
         ? calcM2 > 0
-            ? (calcProduct.price_per_m2 ?? calcProduct.price ?? 0) * calcM2
+            ? (activeProduct.price_per_m2 ?? activeProduct.price ?? 0) * calcM2
             : null
         : null;
 
@@ -153,6 +161,117 @@ export default function PedidoPage() {
     return (
         <div className="min-h-screen flex flex-col bg-gray-50">
             <Header />
+
+            {/* ── Product Details Modal ── */}
+            {detailsProduct && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setDetailsProduct(null)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                        <div className="relative h-64 shrink-0 bg-gray-100 flex items-center justify-center" style={{ background: detailsProduct.image_url ? "transparent" : `${detailsProduct.service_color}22` }}>
+                            {detailsProduct.image_url ? (
+                                <img src={detailsProduct.image_url} alt={detailsProduct.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-7xl opacity-30">📦</span>
+                            )}
+                            <button onClick={() => setDetailsProduct(null)} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white text-gray-600 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 flex flex-col flex-1 min-h-0">
+                            <div className="flex items-start justify-between mb-4 shrink-0">
+                                <div>
+                                    <span className="text-[10px] font-bold px-2 py-1 rounded-full text-white mb-2 inline-block shadow-sm" style={{ background: detailsProduct.service_color }}>
+                                        {detailsProduct.service_name}
+                                    </span>
+                                    <h2 className="text-2xl font-black text-gray-900 leading-tight">{detailsProduct.name}</h2>
+                                </div>
+                                {detailsProduct.price_visible && detailsProduct.price != null && (
+                                    <div className="text-right ml-4 shrink-0">
+                                        <div className="text-2xl font-black text-blue-600">US$ {Number(detailsProduct.price).toFixed(2)}</div>
+                                        {detailsProduct.unit && <div className="text-xs text-gray-500">/ {detailsProduct.unit}</div>}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="mb-6 text-sm text-gray-600 leading-relaxed overflow-y-auto pr-2 flex-1">
+                                {detailsProduct.description ? (
+                                    <p className="whitespace-pre-wrap">{detailsProduct.description}</p>
+                                ) : (
+                                    <p className="italic text-gray-400">Sin descripción disponible.</p>
+                                )}
+                            </div>
+
+                            {detailsProduct.calculator_enabled && (
+                                <div className="mb-4 bg-gray-50 rounded-2xl p-4 border border-gray-100 shrink-0">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Calculadora de m²</p>
+                                    <div className="flex gap-3 mb-4">
+                                        <div className="flex-1">
+                                            <label className="text-xs text-gray-500 block mb-1 font-medium">Ancho (metros)</label>
+                                            <input
+                                                type="number" min="0" step="0.01"
+                                                value={calcWidth} onChange={e => setCalcWidth(e.target.value)}
+                                                placeholder="ej: 1.50"
+                                                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold"
+                                            />
+                                        </div>
+                                        <div className="flex items-end pb-2 text-gray-300 font-light text-xl">×</div>
+                                        <div className="flex-1">
+                                            <label className="text-xs text-gray-500 block mb-1 font-medium">Alto (metros)</label>
+                                            <input
+                                                type="number" min="0" step="0.01"
+                                                value={calcHeight} onChange={e => setCalcHeight(e.target.value)}
+                                                placeholder="ej: 2.00"
+                                                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-semibold"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className={`rounded-2xl p-3 text-center transition-all ${calcM2 > 0 ? "bg-white border border-blue-100 shadow-sm" : "bg-gray-100 border border-gray-200"}`}>
+                                        {calcM2 > 0 ? (
+                                            <>
+                                                <p className="text-xl font-black text-blue-700">{calcM2.toFixed(2)} m²</p>
+                                                {detailsProduct.price_visible && calcPrice != null && (
+                                                    <p className="text-sm text-blue-500 font-semibold mt-1">
+                                                        US$ {calcPrice.toFixed(2)}
+                                                        {detailsProduct.price_per_m2 && (
+                                                            <span className="text-xs text-blue-400 ml-1 font-normal">(US$ {detailsProduct.price_per_m2}/m²)</span>
+                                                        )}
+                                                    </p>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <p className="text-gray-400 text-xs">Ingresá ancho y alto para calcular</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="flex gap-3 pt-4 border-t border-gray-100 shrink-0">
+                                <button
+                                    onClick={() => setDetailsProduct(null)}
+                                    className="flex-1 py-3 rounded-xl border border-gray-200 font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                                >
+                                    Cerrar
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (detailsProduct.calculator_enabled) {
+                                            if (calcM2 > 0) goToCheckout(detailsProduct, calcW || undefined, calcH || undefined);
+                                        } else {
+                                            goToCheckout(detailsProduct);
+                                        }
+                                        setDetailsProduct(null);
+                                    }}
+                                    disabled={detailsProduct.calculator_enabled && !calcM2}
+                                    className="flex-1 py-3 rounded-xl font-bold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                                    style={{ background: detailsProduct.service_color }}
+                                >
+                                    <ShoppingCart size={18} /> Comprar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── M² Calculator Modal ── */}
             {calcProduct && (
@@ -358,7 +477,7 @@ export default function PedidoPage() {
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {filtered.map(p => (
-                                    <ProductCard key={p.id} product={p} onQuote={handleQuote} />
+                                    <ProductCard key={p.id} product={p} onQuote={handleQuote} onViewDetails={openDetails} />
                                 ))}
                             </div>
                         )}
@@ -370,9 +489,12 @@ export default function PedidoPage() {
     );
 }
 
-function ProductCard({ product: p, onQuote }: { product: Product; onQuote: (p: Product) => void }) {
+function ProductCard({ product: p, onQuote, onViewDetails }: { product: Product; onQuote: (p: Product) => void; onViewDetails: (p: Product) => void }) {
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col group">
+        <div 
+            className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col group cursor-pointer"
+            onClick={() => onViewDetails(p)}
+        >
             {/* Image or color banner */}
             <div
                 className="h-40 flex items-center justify-center relative overflow-hidden"
@@ -415,7 +537,10 @@ function ProductCard({ product: p, onQuote }: { product: Product; onQuote: (p: P
                 </div>
 
                 <button
-                    onClick={() => onQuote(p)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onQuote(p);
+                    }}
                     className="mt-3 w-full py-2 rounded-xl text-sm font-bold text-white transition-colors"
                     style={{ background: p.service_color }}
                 >
