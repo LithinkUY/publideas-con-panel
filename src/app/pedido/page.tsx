@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Search, SlidersHorizontal, X, ShoppingCart, Tag, Ruler } from "lucide-react";
+import { Search, SlidersHorizontal, X, ShoppingCart, Tag, Ruler, Share2, Check } from "lucide-react";
 
 interface Product {
     id: number;
@@ -54,6 +54,7 @@ export default function PedidoPage() {
     const [calcWidth, setCalcWidth] = useState("");
     const [calcHeight, setCalcHeight] = useState("");
     const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         fetch("/api/services")
@@ -75,6 +76,16 @@ export default function PedidoPage() {
                 }
                 setAllProducts(products);
                 setLoading(false);
+
+                // Deep link support
+                const searchParams = new URLSearchParams(window.location.search);
+                const productId = searchParams.get('producto');
+                if (productId) {
+                    const p = products.find(prod => prod.id.toString() === productId);
+                    if (p) {
+                        setDetailsProduct(p);
+                    }
+                }
             })
             .catch(() => setLoading(false));
     }, []);
@@ -136,6 +147,21 @@ export default function PedidoPage() {
         setCalcWidth("");
         setCalcHeight("");
         setDetailsProduct(p);
+        setCopied(false);
+        window.history.pushState({}, '', `/pedido?producto=${p.id}`);
+    };
+
+    const closeDetails = () => {
+        setDetailsProduct(null);
+        window.history.pushState({}, '', `/pedido`);
+    };
+
+    const handleShare = () => {
+        if (!detailsProduct) return;
+        const url = window.location.origin + `/pedido?producto=${detailsProduct.id}`;
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     // m2 calculator derived values
@@ -164,7 +190,7 @@ export default function PedidoPage() {
 
             {/* ── Product Details Modal ── */}
             {detailsProduct && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setDetailsProduct(null)}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={closeDetails}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                         <div className="relative h-64 shrink-0 bg-gray-100 flex items-center justify-center" style={{ background: detailsProduct.image_url ? "transparent" : `${detailsProduct.service_color}22` }}>
                             {detailsProduct.image_url ? (
@@ -172,7 +198,7 @@ export default function PedidoPage() {
                             ) : (
                                 <span className="text-7xl opacity-30">📦</span>
                             )}
-                            <button onClick={() => setDetailsProduct(null)} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white text-gray-600 transition-colors">
+                            <button onClick={closeDetails} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white text-gray-600 transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
@@ -245,12 +271,19 @@ export default function PedidoPage() {
                                 </div>
                             )}
                             
-                            <div className="flex gap-3 pt-4 border-t border-gray-100 shrink-0">
+                            <div className="flex gap-2 pt-4 border-t border-gray-100 shrink-0">
                                 <button
-                                    onClick={() => setDetailsProduct(null)}
+                                    onClick={closeDetails}
                                     className="flex-1 py-3 rounded-xl border border-gray-200 font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
                                 >
                                     Cerrar
+                                </button>
+                                <button
+                                    onClick={handleShare}
+                                    className={`w-12 flex items-center justify-center rounded-xl border transition-colors ${copied ? 'bg-green-50 border-green-200 text-green-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                                    title="Copiar enlace del producto"
+                                >
+                                    {copied ? <Check size={18} /> : <Share2 size={18} />}
                                 </button>
                                 <button
                                     onClick={() => {
@@ -259,7 +292,7 @@ export default function PedidoPage() {
                                         } else {
                                             goToCheckout(detailsProduct);
                                         }
-                                        setDetailsProduct(null);
+                                        closeDetails();
                                     }}
                                     disabled={detailsProduct.calculator_enabled && !calcM2}
                                     className="flex-1 py-3 rounded-xl font-bold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
