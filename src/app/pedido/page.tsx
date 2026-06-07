@@ -284,57 +284,60 @@ export default function PedidoPage() {
                                     </span>
                                     <h2 className="text-2xl font-black text-gray-900 leading-tight">{detailsProduct.name}</h2>
                                 </div>
-                                {detailsProduct.price_visible && detailsProduct.price != null && (
+                                {detailsProduct.price_visible && (calcPrice != null || detailsProduct.price != null) && (
                                     <div className="text-right ml-4 shrink-0">
-                                        <div className="text-2xl font-black text-blue-600">US$ {Number(detailsProduct.price).toFixed(2)}</div>
+                                        <div className="text-2xl font-black text-blue-600">
+                                            US$ {calcPrice !== null ? calcPrice.toFixed(2) : Number(detailsProduct.price).toFixed(2)}
+                                        </div>
                                         {detailsProduct.unit && <div className="text-xs text-gray-500">/ {detailsProduct.unit}</div>}
                                     </div>
                                 )}
                             </div>
                             
-                            <div className="mb-6 text-sm text-gray-600 leading-relaxed overflow-y-auto pr-2 flex-1">
-                                {detailsProduct.description ? (
-                                    <p className="whitespace-pre-wrap">{detailsProduct.description}</p>
-                                ) : (
-                                    <p className="italic text-gray-400">Sin descripción disponible.</p>
-                                )}
-                            </div>
-
-                            {detailsProduct.variant_ids && detailsProduct.variant_ids.length > 0 && (
-                                <div className="mb-4 shrink-0">
-                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Opciones adicionales</p>
-                                    <div className="space-y-2">
-                                        {detailsProduct.variant_ids.map(vid => {
-                                            const v = allVariants.find(x => x.id === vid);
-                                            if (!v) return null;
-                                            const isSelected = selectedVariantIds.includes(vid);
-                                            return (
-                                                <label key={vid} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                                                    <input 
-                                                        type="checkbox" 
-                                                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                                        checked={isSelected}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) setSelectedVariantIds([...selectedVariantIds, vid]);
-                                                            else setSelectedVariantIds(selectedVariantIds.filter(id => id !== vid));
-                                                        }}
-                                                    />
-                                                    <div className="flex-1">
-                                                        <p className={`text-sm font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>{v.name}</p>
-                                                        {v.description && <p className="text-xs text-gray-500 mt-0.5">{v.description}</p>}
-                                                    </div>
-                                                    <div className="text-sm font-medium text-gray-600">
-                                                        {v.price_type === 'fixed' ? `+US$ ${v.price.toFixed(2)}` : `+${v.price_percent}%`}
-                                                    </div>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
+                            <div className="overflow-y-auto pr-2 flex-1 mb-4 space-y-6">
+                                <div className="text-sm text-gray-600 leading-relaxed">
+                                    {detailsProduct.description ? (
+                                        <p className="whitespace-pre-wrap">{detailsProduct.description}</p>
+                                    ) : (
+                                        <p className="italic text-gray-400">Sin descripción disponible.</p>
+                                    )}
                                 </div>
-                            )}
 
-                            {detailsProduct.calculator_enabled && (
-                                <div className="mb-4 bg-gray-50 rounded-2xl p-4 border border-gray-100 shrink-0">
+                                {detailsProduct.variant_ids && detailsProduct.variant_ids.length > 0 && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Opciones adicionales</p>
+                                        <div className="space-y-2">
+                                            {detailsProduct.variant_ids.map(vid => {
+                                                const v = allVariants.find(x => x.id === vid);
+                                                if (!v) return null;
+                                                const isSelected = selectedVariantIds.includes(vid);
+                                                return (
+                                                    <label key={vid} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                            checked={isSelected}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) setSelectedVariantIds([...selectedVariantIds, vid]);
+                                                                else setSelectedVariantIds(selectedVariantIds.filter(id => id !== vid));
+                                                            }}
+                                                        />
+                                                        <div className="flex-1">
+                                                            <p className={`text-sm font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>{v.name}</p>
+                                                            {v.description && <p className="text-xs text-gray-500 mt-0.5">{v.description}</p>}
+                                                        </div>
+                                                        <div className="text-sm font-medium text-gray-600">
+                                                            {v.price_type === 'fixed' ? `+US$ ${v.price.toFixed(2)}` : `+${v.price_percent}%`}
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {detailsProduct.calculator_enabled && (
+                                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Calculadora de m²</p>
                                     <div className="flex gap-3 mb-4">
                                         <div className="flex-1">
@@ -376,6 +379,7 @@ export default function PedidoPage() {
                                     </div>
                                 </div>
                             )}
+                            </div>
                             
                             <div className="flex gap-2 pt-4 border-t border-gray-100 shrink-0">
                                 <button
