@@ -60,10 +60,9 @@ const GATEWAY_BADGE: Record<string, string> = {
     cash: "bg-amber-400/10 text-amber-400",
 };
 
-function formatAmount(total: number, currency: string, uyu_rate = 43) {
+function formatAmount(total: number, currency: string) {
     if (currency === "UYU") {
-        const uyu = total * uyu_rate;
-        return `$${uyu.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+        return `$${total.toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     }
     return `US$ ${Number(total).toFixed(2)}`;
 }
@@ -184,7 +183,7 @@ export default function CheckoutPage() {
             `Cliente: ${order.client_name}`,
             `Email: ${email}`,
             `Producto: ${cart?.product}`,
-            `Total: ${cart ? formatAmount(cart.total, cart.currency, cart.uyu_rate) : ""}`,
+            `Total: ${cart ? formatAmount(cart.total, cart.currency) : ""}`,
             `Método de pago: ${selectedGateway?.name}`,
             ``,
             `_Enviado desde el portal de pedidos_`,
@@ -212,7 +211,7 @@ export default function CheckoutPage() {
         const isBank = selectedGateway?.type === "bank_transfer";
         const isCash = selectedGateway?.type === "cash";
         const bankCfg = selectedGateway?.config ?? {};
-        const amtStr = formatAmount(cart.total, cart.currency, cart.uyu_rate);
+        const amtStr = formatAmount(cart.total, cart.currency);
 
         return (
             <>
@@ -371,7 +370,7 @@ export default function CheckoutPage() {
                         <div className="text-right flex-shrink-0">
                             <p className="text-xs text-white/30">×{cart.quantity}</p>
                             <p className="text-xl font-black text-[#00CFFF]">
-                                {formatAmount(cart.total, cart.currency, cart.uyu_rate)}
+                                {formatAmount(cart.total, cart.currency)}
                             </p>
                         </div>
                     </div>

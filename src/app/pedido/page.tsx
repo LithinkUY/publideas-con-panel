@@ -61,13 +61,16 @@ export default function PedidoPage() {
     const [allVariants, setAllVariants] = useState<Variant[]>([]);
     const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([]);
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+    const [uyuRate, setUyuRate] = useState(43);
 
     useEffect(() => {
         Promise.all([
             fetch("/api/services").then(r => r.json()),
-            fetch("/api/variants").then(r => r.json())
+            fetch("/api/variants").then(r => r.json()),
+            fetch("/api/config?key=pricing").then(r => r.json())
         ])
-            .then(([services, variants]: [ServiceRaw[], Variant[]]) => {
+            .then(([services, variants, pricingCfg]: [ServiceRaw[], Variant[], any]) => {
+                if (pricingCfg?.uyu_rate) setUyuRate(Number(pricingCfg.uyu_rate));
                 setAllVariants(variants.filter(v => v.active));
                 const products: Product[] = [];
                 for (const s of services) {
@@ -120,28 +123,30 @@ export default function PedidoPage() {
         });
     }, [allProducts, search, selectedCategory, priceMin, priceMax]);
 
+    const formatAmount = (usd: number) => `$ ${(usd * uyuRate).toLocaleString("es-UY", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
     const goToCheckout = (p: Product, w?: number, h?: number, selVarIds?: number[]) => {
         const m2 = w && h ? parseFloat((w * h).toFixed(4)) : undefined;
         const pricePerM2 = p.price_per_m2 ?? p.price ?? 0;
-        const basePrice = m2 ? pricePerM2 * m2 : (p.price ?? 0);
+        const basePriceUSD = m2 ? pricePerM2 * m2 : (p.price ?? 0);
 
-        let variantsTotal = 0;
+        let variantsTotalUSD = 0;
         const variantNames: string[] = [];
         (selVarIds || []).forEach(vid => {
             const v = allVariants.find(x => x.id === vid);
             if (v) {
                 if (v.price_type === "percent") {
-                    const cost = basePrice * (v.price_percent / 100);
-                    variantsTotal += cost;
-                    variantNames.push(`${v.name} (+US$ ${cost.toFixed(2)})`);
+                    const costUSD = basePriceUSD * (v.price_percent / 100);
+                    variantsTotalUSD += costUSD;
+                    variantNames.push(`${v.name} (+${formatAmount(costUSD)})`);
                 } else {
-                    variantsTotal += v.price;
-                    variantNames.push(`${v.name} (+US$ ${v.price.toFixed(2)})`);
+                    variantsTotalUSD += v.price;
+                    variantNames.push(`${v.name} (+${formatAmount(v.price)})`);
                 }
             }
         });
 
-        const total = basePrice + variantsTotal;
+        const totalUSD = basePriceUSD + variantsTotalUSD;
 
         const cartItem = {
             service: p.service_name,
@@ -153,9 +158,10 @@ export default function PedidoPage() {
             height: h,
             m2,
             variants: variantNames,
-            basePrice,
-            total,
-            currency: "USD",
+            basePrice: basePriceUSD * uyuRate,
+            total: totalUSD * uyuRate,
+            currency: "UYU",
+            uyu_rate: uyuRate,
         };
         sessionStorage.setItem("checkout_cart", JSON.stringify(cartItem));
         setCartCount(c => c + 1);
@@ -287,7 +293,7 @@ export default function PedidoPage() {
                                 {detailsProduct.price_visible && (calcPrice != null || detailsProduct.price != null) && (
                                     <div className="text-right ml-4 shrink-0">
                                         <div className="text-2xl font-black text-blue-600">
-                                            US$ {calcPrice !== null ? calcPrice.toFixed(2) : Number(detailsProduct.price).toFixed(2)}
+                                            {calcPrice !== null ? formatAmount(calcPrice) : formatAmount(Number(detailsProduct.price))}
                                         </div>
                                         {detailsProduct.unit && <div className="text-xs text-gray-500">/ {detailsProduct.unit}</div>}
                                     </div>
@@ -327,7 +333,7 @@ export default function PedidoPage() {
                                                             {v.description && <p className="text-xs text-gray-500 mt-0.5">{v.description}</p>}
                                                         </div>
                                                         <div className="text-sm font-medium text-gray-600">
-                                                            {v.price_type === 'fixed' ? `+US$ ${v.price.toFixed(2)}` : `+${v.price_percent}%`}
+                                                            {v.price_type === 'fixed' ? `+${formatAmount(v.price)}` : `+${v.price_percent}%`}
                                                         </div>
                                                     </label>
                                                 );
@@ -489,7 +495,7 @@ export default function PedidoPage() {
                                                     <p className={`text-sm font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>{v.name}</p>
                                                 </div>
                                                 <div className="text-sm font-medium text-gray-600">
-                                                    {v.price_type === 'fixed' ? `+US$ ${v.price.toFixed(2)}` : `+${v.price_percent}%`}
+                                                    {v.price_type === 'fixed' ? `+${formatAmount(v.price)}` : `+${v.price_percent}%`}
                                                 </div>
                                             </label>
                                         );
@@ -505,9 +511,9 @@ export default function PedidoPage() {
                                     <p className="text-2xl font-black text-blue-700">{calcM2.toFixed(2)} m²</p>
                                     {calcProduct.price_visible && calcPrice != null && (
                                         <p className="text-sm text-blue-500 font-semibold mt-1">
-                                            US$ {calcPrice.toFixed(2)}
+                                            {formatAmount(calcPrice)}
                                             {calcProduct.price_per_m2 && (
-                                                <span className="text-xs text-blue-400 ml-1 font-normal">(US$ {calcProduct.price_per_m2}/m²)</span>
+                                                <span className="text-xs text-blue-400 ml-1 font-normal">({formatAmount(calcProduct.price_per_m2)}/m²)</span>
                                             )}
                                         </p>
                                     )}
@@ -652,7 +658,7 @@ export default function PedidoPage() {
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {filtered.map(p => (
-                                    <ProductCard key={p.id} product={p} onQuote={handleQuote} onViewDetails={openDetails} />
+                                    <ProductCard key={p.id} product={p} onQuote={handleQuote} onViewDetails={openDetails} formatAmount={formatAmount} />
                                 ))}
                             </div>
                         )}
@@ -664,7 +670,7 @@ export default function PedidoPage() {
     );
 }
 
-function ProductCard({ product: p, onQuote, onViewDetails }: { product: Product; onQuote: (p: Product) => void; onViewDetails: (p: Product) => void }) {
+function ProductCard({ product: p, onQuote, onViewDetails, formatAmount }: { product: Product; onQuote: (p: Product) => void; onViewDetails: (p: Product) => void; formatAmount: (usd: number) => string }) {
     return (
         <div 
             className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col group cursor-pointer"
@@ -703,7 +709,7 @@ function ProductCard({ product: p, onQuote, onViewDetails }: { product: Product;
                 <div className="mt-3 flex items-end justify-between">
                     {p.price_visible && p.price != null ? (
                         <div>
-                            <span className="text-lg font-black text-gray-900">US$ {Number(p.price).toFixed(2)}</span>
+                            <span className="text-lg font-black text-gray-900">{formatAmount(Number(p.price))}</span>
                             {p.unit && <span className="text-xs text-gray-400 ml-1">/ {p.unit}</span>}
                         </div>
                     ) : (
