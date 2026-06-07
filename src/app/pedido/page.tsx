@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Search, SlidersHorizontal, X, ShoppingCart, Tag, Ruler, Share2, Check } from "lucide-react";
+import { Variant } from "@/lib/types";
 
 interface Product {
     id: number;
@@ -18,6 +19,7 @@ interface Product {
     price_visible: boolean;
     calculator_enabled: boolean;
     active: boolean;
+    variant_ids?: number[];
 }
 
 interface ServiceRaw {
@@ -38,6 +40,7 @@ interface ServiceRaw {
         price_visible: boolean;
         calculator_enabled: boolean;
         active: boolean;
+        variant_ids?: number[];
     }[];
 }
 
@@ -55,11 +58,16 @@ export default function PedidoPage() {
     const [calcHeight, setCalcHeight] = useState("");
     const [detailsProduct, setDetailsProduct] = useState<Product | null>(null);
     const [copied, setCopied] = useState(false);
+    const [allVariants, setAllVariants] = useState<Variant[]>([]);
+    const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([]);
 
     useEffect(() => {
-        fetch("/api/services")
-            .then(r => r.json())
-            .then((services: ServiceRaw[]) => {
+        Promise.all([
+            fetch("/api/services").then(r => r.json()),
+            fetch("/api/variants").then(r => r.json())
+        ])
+            .then(([services, variants]: [ServiceRaw[], Variant[]]) => {
+                setAllVariants(variants.filter(v => v.active));
                 const products: Product[] = [];
                 for (const s of services) {
                     if (!s.active) continue;
@@ -71,6 +79,7 @@ export default function PedidoPage() {
                             service_name: s.name,
                             service_color: s.color ?? "#1a2a3a",
                             price_per_m2: p.price_per_m2 != null ? Number(p.price_per_m2) : undefined,
+                            variant_ids: p.variant_ids
                         });
                     }
                 }
@@ -110,10 +119,29 @@ export default function PedidoPage() {
         });
     }, [allProducts, search, selectedCategory, priceMin, priceMax]);
 
-    const goToCheckout = (p: Product, w?: number, h?: number) => {
+    const goToCheckout = (p: Product, w?: number, h?: number, selVarIds?: number[]) => {
         const m2 = w && h ? parseFloat((w * h).toFixed(4)) : undefined;
         const pricePerM2 = p.price_per_m2 ?? p.price ?? 0;
-        const total = m2 ? pricePerM2 * m2 : (p.price ?? 0);
+        const basePrice = m2 ? pricePerM2 * m2 : (p.price ?? 0);
+
+        let variantsTotal = 0;
+        const variantNames: string[] = [];
+        (selVarIds || []).forEach(vid => {
+            const v = allVariants.find(x => x.id === vid);
+            if (v) {
+                if (v.price_type === "percent") {
+                    const cost = basePrice * (v.price_percent / 100);
+                    variantsTotal += cost;
+                    variantNames.push(`${v.name} (+US$ ${cost.toFixed(2)})`);
+                } else {
+                    variantsTotal += v.price;
+                    variantNames.push(`${v.name} (+US$ ${v.price.toFixed(2)})`);
+                }
+            }
+        });
+
+        const total = basePrice + variantsTotal;
+
         const cartItem = {
             service: p.service_name,
             product: p.name,
@@ -123,8 +151,8 @@ export default function PedidoPage() {
             width: w,
             height: h,
             m2,
-            variants: [] as string[],
-            basePrice: m2 ? pricePerM2 : (p.price ?? 0),
+            variants: variantNames,
+            basePrice,
             total,
             currency: "USD",
         };
@@ -137,6 +165,7 @@ export default function PedidoPage() {
         if (p.calculator_enabled) {
             setCalcWidth("");
             setCalcHeight("");
+            setSelectedVariantIds([]);
             setCalcProduct(p);
         } else {
             goToCheckout(p);
@@ -146,6 +175,7 @@ export default function PedidoPage() {
     const openDetails = (p: Product) => {
         setCalcWidth("");
         setCalcHeight("");
+        setSelectedVariantIds([]);
         setDetailsProduct(p);
         setCopied(false);
         window.history.pushState({}, '', `/pedido?producto=${p.id}`);
@@ -169,11 +199,33 @@ export default function PedidoPage() {
     const calcH = parseFloat(calcHeight) || 0;
     const calcM2 = calcW > 0 && calcH > 0 ? calcW * calcH : 0;
     const activeProduct = calcProduct || detailsProduct;
-    const calcPrice = activeProduct
-        ? calcM2 > 0
-            ? (activeProduct.price_per_m2 ?? activeProduct.price ?? 0) * calcM2
-            : null
-        : null;
+    
+    let calcPrice: number | null = null;
+    if (activeProduct) {
+        if (activeProduct.calculator_enabled) {
+            if (calcM2 > 0) {
+                let base = (activeProduct.price_per_m2 ?? activeProduct.price ?? 0) * calcM2;
+                let vTotal = 0;
+                selectedVariantIds.forEach(vid => {
+                    const v = allVariants.find(x => x.id === vid);
+                    if (v) {
+                        vTotal += v.price_type === "percent" ? base * (v.price_percent / 100) : v.price;
+                    }
+                });
+                calcPrice = base + vTotal;
+            }
+        } else {
+            let base = activeProduct.price ?? 0;
+            let vTotal = 0;
+            selectedVariantIds.forEach(vid => {
+                const v = allVariants.find(x => x.id === vid);
+                if (v) {
+                    vTotal += v.price_type === "percent" ? base * (v.price_percent / 100) : v.price;
+                }
+            });
+            calcPrice = base + vTotal;
+        }
+    }
 
     const clearFilters = () => {
         setSearch("");
@@ -226,6 +278,39 @@ export default function PedidoPage() {
                                     <p className="italic text-gray-400">Sin descripción disponible.</p>
                                 )}
                             </div>
+
+                            {detailsProduct.variant_ids && detailsProduct.variant_ids.length > 0 && (
+                                <div className="mb-4 shrink-0">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Opciones adicionales</p>
+                                    <div className="space-y-2">
+                                        {detailsProduct.variant_ids.map(vid => {
+                                            const v = allVariants.find(x => x.id === vid);
+                                            if (!v) return null;
+                                            const isSelected = selectedVariantIds.includes(vid);
+                                            return (
+                                                <label key={vid} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                        checked={isSelected}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setSelectedVariantIds([...selectedVariantIds, vid]);
+                                                            else setSelectedVariantIds(selectedVariantIds.filter(id => id !== vid));
+                                                        }}
+                                                    />
+                                                    <div className="flex-1">
+                                                        <p className={`text-sm font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>{v.name}</p>
+                                                        {v.description && <p className="text-xs text-gray-500 mt-0.5">{v.description}</p>}
+                                                    </div>
+                                                    <div className="text-sm font-medium text-gray-600">
+                                                        {v.price_type === 'fixed' ? `+US$ ${v.price.toFixed(2)}` : `+${v.price_percent}%`}
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             {detailsProduct.calculator_enabled && (
                                 <div className="mb-4 bg-gray-50 rounded-2xl p-4 border border-gray-100 shrink-0">
@@ -288,9 +373,9 @@ export default function PedidoPage() {
                                 <button
                                     onClick={() => {
                                         if (detailsProduct.calculator_enabled) {
-                                            if (calcM2 > 0) goToCheckout(detailsProduct, calcW || undefined, calcH || undefined);
+                                            if (calcM2 > 0) goToCheckout(detailsProduct, calcW || undefined, calcH || undefined, selectedVariantIds);
                                         } else {
-                                            goToCheckout(detailsProduct);
+                                            goToCheckout(detailsProduct, undefined, undefined, selectedVariantIds);
                                         }
                                         closeDetails();
                                     }}
@@ -356,6 +441,38 @@ export default function PedidoPage() {
                             </div>
                         </div>
 
+                        {calcProduct.variant_ids && calcProduct.variant_ids.length > 0 && (
+                            <div className="mb-4">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Opciones adicionales</p>
+                                <div className="space-y-2">
+                                    {calcProduct.variant_ids.map(vid => {
+                                        const v = allVariants.find(x => x.id === vid);
+                                        if (!v) return null;
+                                        const isSelected = selectedVariantIds.includes(vid);
+                                        return (
+                                            <label key={vid} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                    checked={isSelected}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) setSelectedVariantIds([...selectedVariantIds, vid]);
+                                                        else setSelectedVariantIds(selectedVariantIds.filter(id => id !== vid));
+                                                    }}
+                                                />
+                                                <div className="flex-1">
+                                                    <p className={`text-sm font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>{v.name}</p>
+                                                </div>
+                                                <div className="text-sm font-medium text-gray-600">
+                                                    {v.price_type === 'fixed' ? `+US$ ${v.price.toFixed(2)}` : `+${v.price_percent}%`}
+                                                </div>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Result */}
                         <div className={`rounded-2xl p-4 mb-4 text-center transition-all ${calcM2 > 0 ? "bg-blue-50 border border-blue-100" : "bg-gray-50 border border-gray-100"}`}>
                             {calcM2 > 0 ? (
@@ -384,7 +501,7 @@ export default function PedidoPage() {
                             </button>
                             <button
                                 onClick={() => {
-                                    goToCheckout(calcProduct, calcW || undefined, calcH || undefined);
+                                    goToCheckout(calcProduct, calcW || undefined, calcH || undefined, selectedVariantIds);
                                     setCalcProduct(null);
                                 }}
                                 disabled={!calcM2}
