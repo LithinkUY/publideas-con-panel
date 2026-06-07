@@ -127,6 +127,37 @@ export default function CheckoutPage() {
             const completeData = await completeRes.json();
             if (!completeRes.ok) throw new Error(completeData.error ?? "Error creando el pedido");
 
+            if (selectedGateway.type === "mercadopago") {
+                // Mercado Pago en Uruguay requiere moneda UYU
+                const unitPrice = cart.currency === "USD" 
+                    ? (cart.total * (cart.uyu_rate || 43)) / cart.quantity 
+                    : cart.total / cart.quantity;
+
+                const mpRes = await fetch("/api/payment-gateways/mercadopago/preference", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        items: [{
+                            id: cart.productId,
+                            title: `${cart.service} - ${cart.product}`,
+                            quantity: cart.quantity,
+                            unit_price: Number(unitPrice.toFixed(2)),
+                            currency_id: "UYU",
+                        }],
+                        payer: { name, email },
+                        external_reference: completeData.order_number,
+                    }),
+                });
+                const mpData = await mpRes.json();
+                if (mpRes.ok && mpData.init_point) {
+                    sessionStorage.removeItem("checkout_cart");
+                    window.location.href = mpData.is_test ? mpData.sandbox_init_point : mpData.init_point;
+                    return;
+                } else {
+                    throw new Error(`Error de MercadoPago: ${mpData.detail || mpData.error || 'No se pudo generar el link de pago'}`);
+                }
+            }
+
             setOrderResult(completeData);
 
             localStorage.setItem("portal_session", JSON.stringify({
@@ -137,29 +168,6 @@ export default function CheckoutPage() {
                 pin_code: completeData.pin_code,
             }));
             sessionStorage.removeItem("checkout_cart");
-
-            if (selectedGateway.type === "mercadopago") {
-                const mpRes = await fetch("/api/payment-gateways/mercadopago/preference", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        items: [{
-                            id: cart.productId,
-                            title: `${cart.service} - ${cart.product}`,
-                            quantity: cart.quantity,
-                            unit_price: cart.total / cart.quantity,
-                            currency_id: cart.currency === "UYU" ? "UYU" : "USD",
-                        }],
-                        payer: { name, email },
-                        external_reference: completeData.order_number,
-                    }),
-                });
-                const mpData = await mpRes.json();
-                if (mpRes.ok && mpData.init_point) {
-                    window.location.href = mpData.is_test ? mpData.sandbox_init_point : mpData.init_point;
-                    return;
-                }
-            }
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Error al procesar");
         } finally {
