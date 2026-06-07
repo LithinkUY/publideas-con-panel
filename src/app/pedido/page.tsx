@@ -60,6 +60,7 @@ export default function PedidoPage() {
     const [copied, setCopied] = useState(false);
     const [allVariants, setAllVariants] = useState<Variant[]>([]);
     const [selectedVariantIds, setSelectedVariantIds] = useState<number[]>([]);
+    const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
     useEffect(() => {
         Promise.all([
@@ -240,15 +241,35 @@ export default function PedidoPage() {
         <div className="min-h-screen flex flex-col bg-gray-50">
             <Header />
 
+            {/* ── Image Lightbox Modal ── */}
+            {zoomedImage && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4" onClick={() => setZoomedImage(null)}>
+                    <img src={zoomedImage} alt="Zoom" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+                    <button onClick={() => setZoomedImage(null)} className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+            )}
+
             {/* ── Product Details Modal ── */}
             {detailsProduct && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={closeDetails}>
                     <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                        <div className="relative h-64 shrink-0 bg-gray-100 flex items-center justify-center" style={{ background: detailsProduct.image_url ? "transparent" : `${detailsProduct.service_color}22` }}>
+                        <div className="relative h-64 shrink-0 bg-gray-100 flex items-center justify-center group" style={{ background: detailsProduct.image_url ? "transparent" : `${detailsProduct.service_color}22` }}>
                             {detailsProduct.image_url ? (
-                                <img src={detailsProduct.image_url} alt={detailsProduct.name} className="w-full h-full object-cover" />
+                                <img 
+                                    src={detailsProduct.image_url} 
+                                    alt={detailsProduct.name} 
+                                    className="w-full h-full object-cover cursor-pointer" 
+                                    onClick={() => setZoomedImage(detailsProduct.image_url!)}
+                                />
                             ) : (
                                 <span className="text-7xl opacity-30">📦</span>
+                            )}
+                            {detailsProduct.image_url && (
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-center">
+                                    <Search className="text-white drop-shadow-md" size={32} />
+                                </div>
                             )}
                             <button onClick={closeDetails} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white text-gray-600 transition-colors">
                                 <X size={20} />
