@@ -9,7 +9,16 @@ export async function GET() {
     const rows = await sql`
         SELECT * FROM payment_gateways ORDER BY sort_order, id
     `;
-    return NextResponse.json(toJSON(rows));
+    
+    // Forzamos test_mode false para mercadopago en el frontend
+    const gateways = rows.map((r: any) => {
+        if (r.type === 'mercadopago') {
+            r.test_mode = false;
+        }
+        return r;
+    });
+
+    return NextResponse.json(toJSON(gateways));
 }
 
 export async function POST(req: Request) {
