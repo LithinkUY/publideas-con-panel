@@ -7,23 +7,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { items, payer, external_reference, back_urls, notification_url } = body;
 
-    // Obtener configuración de MercadoPago desde la DB
-    const rows = await sql`
-        SELECT config, test_mode FROM payment_gateways
-        WHERE type = 'mercadopago' AND active = true
-        LIMIT 1
-    `;
-
-    if (!rows[0]) {
-        return NextResponse.json({ error: "MercadoPago no está configurado o activo" }, { status: 400 });
-    }
-
-    const cfg = rows[0].config as { access_token?: string };
-    const access_token = cfg.access_token;
-
-    if (!access_token) {
-        return NextResponse.json({ error: "Access token de MercadoPago no configurado" }, { status: 400 });
-    }
+    // Integración nativa forzada a producción a pedido del cliente
+    const access_token = "APP_USR-843318059666874-051100-b5a263cfaa834e9be2fc4b0d6784b040-2069611075";
+    const is_test = false;
 
     const preference = {
         items: items ?? [],
@@ -53,11 +39,10 @@ export async function POST(req: Request) {
     }
 
     const data = await mpRes.json();
-    const is_test = rows[0].test_mode as boolean;
 
     return NextResponse.json({
         preference_id: data.id,
-        init_point: is_test ? data.sandbox_init_point : data.init_point,
+        init_point: data.init_point, // Forzado a producción real
         sandbox_init_point: data.sandbox_init_point,
         is_test,
     });
