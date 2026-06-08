@@ -9,7 +9,7 @@ import {
     Edit3, Plus, Trash2, Eye, CheckCircle, XCircle, Upload,
     Image as ImageIcon, Video, FileText, Menu as MenuIcon,
     Palette, ChevronDown, ChevronUp, GripVertical, Globe, Layers, Link, Tag,
-    DollarSign, Percent, CreditCard, Building2, Banknote, ToggleLeft, ToggleRight, Truck, Calendar, Clock, Loader2, Activity
+    DollarSign, Percent, CreditCard, Building2, Banknote, ToggleLeft, ToggleRight, Truck, Calendar, Clock, Loader2, Activity, RefreshCw
 } from "lucide-react";
 import {
     SiteConfig, Service, ServiceProduct, ProductDetail, Variant, PricingConfig,
@@ -1643,6 +1643,27 @@ function GalleryAdmin({ onSave }: { onSave: (msg: string) => void }) {
         setCfg({ ...cfg, items: cfg.items.filter(i => i.id !== id) });
     };
 
+    const handleRecover = async () => {
+        if (!confirm("Esto buscará todas tus imágenes subidas en Cloudinary y las restaurará en una nueva categoría. ¿Continuar?")) return;
+        setSaving(true);
+        try {
+            const res = await fetch("/api/admin/recover-gallery", { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                onSave("Éxito: " + data.message);
+                // Recargar galería
+                const val = await apiGet<GalleryConfig | null>("/api/config?key=gallery");
+                if (val) setCfg(val);
+            } else {
+                onSave("Error al recuperar: " + data.error);
+            }
+        } catch (e) {
+            onSave("Error: " + String(e));
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
         <div className="max-w-4xl space-y-6">
             <div className="flex items-center justify-between">
@@ -1650,9 +1671,14 @@ function GalleryAdmin({ onSave }: { onSave: (msg: string) => void }) {
                     <h3 className="text-sm font-semibold text-white/70">Galería de Trabajos</h3>
                     <p className="text-xs text-white/40 mt-1">Crea categorías y sube imágenes de trabajos realizados.</p>
                 </div>
-                <button onClick={addCategory} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#00CFFF]/10 text-[#00CFFF] text-xs font-semibold hover:bg-[#00CFFF]/20 transition-colors">
-                    <Plus size={14} /> Nueva Categoría
-                </button>
+                <div className="flex items-center gap-2">
+                    <button onClick={handleRecover} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-400 text-xs font-semibold hover:bg-orange-500/20 transition-colors">
+                        <RefreshCw size={14} /> Recuperar Imágenes Perdidas
+                    </button>
+                    <button onClick={addCategory} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#00CFFF]/10 text-[#00CFFF] text-xs font-semibold hover:bg-[#00CFFF]/20 transition-colors">
+                        <Plus size={14} /> Nueva Categoría
+                    </button>
+                </div>
             </div>
 
             <div className="space-y-4">
