@@ -44,7 +44,7 @@ export async function GET() {
                 SELECT id FROM services WHERE slug = ${dup.slug} ORDER BY id ASC
             `;
             const keepId = servicesWithSlug[0].id;
-            const deleteIds = servicesWithSlug.slice(1).map(x => x.id);
+            const deleteIds = servicesWithSlug.slice(1).map((x: any) => x.id);
             logs.push(`For slug '${dup.slug}', keeping service ID ${keepId} and deleting IDs ${deleteIds.join(", ")}`);
 
             // Delete the duplicates from services
