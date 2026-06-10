@@ -1,5 +1,15 @@
+import postgres from "postgres";
 import { NextResponse } from "next/server";
-import { sql } from "@/lib/db";
+
+const sql = postgres({
+    host: "2600:1f14:b9e:7b00:c5bc:6a22:85f5:209d",
+    port: 5432,
+    database: "postgres",
+    username: "postgres",
+    password: "VIcKcmHzLlxSk3X5",
+    ssl: "require",
+    connect_timeout: 10
+});
 
 export const dynamic = "force-dynamic";
 
