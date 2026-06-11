@@ -17,10 +17,20 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
-    const { key, value } = await req.json();
-    await sql`
-        INSERT INTO site_config (key, value) VALUES (${key}, ${JSON.stringify(value)}::jsonb)
-        ON CONFLICT (key) DO UPDATE SET value=${JSON.stringify(value)}::jsonb, updated_at=now()
-    `;
-    return NextResponse.json({ ok: true });
+    try {
+        const { key, value } = await req.json();
+        
+        // Ensure value is handled properly for jsonb
+        const jsonValue = value !== undefined ? JSON.stringify(value) : null;
+        
+        await sql`
+            INSERT INTO site_config (key, value) 
+            VALUES (${key}, ${sql.json(value)})
+            ON CONFLICT (key) DO UPDATE SET value=${sql.json(value)}, updated_at=now()
+        `;
+        return NextResponse.json({ ok: true });
+    } catch (e: any) {
+        console.error("PUT /api/config Error:", e);
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
 }
