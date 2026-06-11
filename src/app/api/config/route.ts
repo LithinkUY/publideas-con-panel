@@ -25,8 +25,8 @@ export async function PUT(req: Request) {
         
         await sql`
             INSERT INTO site_config (key, value) 
-            VALUES (${key}, ${sql.json(value)})
-            ON CONFLICT (key) DO UPDATE SET value=${sql.json(value)}, updated_at=now()
+            VALUES (${key}, ${jsonValue}::jsonb)
+            ON CONFLICT (key) DO UPDATE SET value=${jsonValue}::jsonb, updated_at=now()
         `;
         return NextResponse.json({ ok: true });
     } catch (e: any) {
