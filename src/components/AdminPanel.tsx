@@ -110,6 +110,7 @@ const ADMIN_SECTIONS = [
     { id: "menu", label: "Menu de Navegacion", icon: MenuIcon },
     { id: "paginas", label: "Paginas", icon: FileText },
     { id: "galeria", label: "Galeria de Trabajos", icon: ImageIcon },
+    { id: "muestras", label: "Muestras de Diseño", icon: Eye },
     { id: "sitio", label: "Portada / Hero", icon: Globe },
     { id: "footer", label: "Footer", icon: Link },
     { id: "seo", label: "SEO & Tracking", icon: Activity },
@@ -3471,6 +3472,151 @@ function SeoAdmin({ onSave }: { onSave: (m: string) => void }) {
     );
 }
 
+// ── Muestras de Diseño ──────────────────────────────────────────
+type DesignSample = { id: number; token: string; title: string; image_url: string; created_at: string; active: boolean };
+
+function DesignSamplesAdmin({ onSave }: { onSave: (msg: string) => void }) {
+    const [samples, setSamples] = useState<DesignSample[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [title, setTitle] = useState("");
+    const [uploading, setUploading] = useState(false);
+
+    const loadSamples = async () => {
+        setLoading(true);
+        try {
+            const data = await apiGet<DesignSample[]>("/api/admin/design-samples");
+            setSamples(data);
+        } catch { }
+        setLoading(false);
+    };
+
+    useEffect(() => { loadSamples(); }, []);
+
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!title.trim()) {
+            onSave("Por favor ingresa un título antes de subir.");
+            return;
+        }
+        
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("type", "media");
+
+            const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+            if (!uploadRes.ok) throw new Error("Fallo al subir imagen");
+            const { url: image_url } = await uploadRes.json();
+
+            await apiPost("/api/admin/design-samples", { title, image_url });
+            onSave("Muestra subida correctamente");
+            setTitle("");
+            loadSamples();
+        } catch (error) {
+            console.error(error);
+            onSave("Error al subir muestra");
+        }
+        setUploading(false);
+        e.target.value = "";
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!confirm("¿Eliminar esta muestra?")) return;
+        try {
+            await apiDelete(`/api/admin/design-samples?id=${id}`);
+            onSave("Muestra eliminada");
+            loadSamples();
+        } catch {
+            onSave("Error al eliminar");
+        }
+    };
+
+    const copyLink = (token: string) => {
+        const url = `${window.location.origin}/muestra/${token}`;
+        navigator.clipboard.writeText(url);
+        onSave("Enlace copiado al portapapeles");
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="portal-card">
+                <h3 className="text-sm font-semibold text-white/70 mb-4">Subir Nueva Muestra</h3>
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex-1">
+                        <label className="text-[10px] text-white/40 mb-1 block">Título (Ej: Diseño Carnicería Tito)</label>
+                        <input
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            className="dark-input w-full"
+                            placeholder="Ingrese título de la muestra"
+                        />
+                    </div>
+                    <div className="relative flex-shrink-0">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleUpload}
+                            disabled={uploading}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                        />
+                        <button
+                            disabled={uploading}
+                            className="px-6 py-2.5 rounded-xl bg-[#00CFFF] text-black text-sm font-bold hover:bg-[#00CFFF]/90 transition-colors flex items-center gap-2 disabled:opacity-50"
+                        >
+                            {uploading ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                            {uploading ? "Subiendo..." : "Subir Muestra"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="portal-card">
+                <h3 className="text-sm font-semibold text-white/70 mb-4">Muestras Existentes</h3>
+                {loading ? (
+                    <div className="flex justify-center py-10"><Loader2 size={24} className="animate-spin text-white/30" /></div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {samples.map(s => (
+                            <div key={s.id} className="border border-[#2a2a2a] rounded-xl overflow-hidden bg-black flex flex-col">
+                                <div className="h-40 bg-[#111] relative">
+                                    <img src={s.image_url} alt={s.title} className="w-full h-full object-cover" />
+                                </div>
+                                <div className="p-4 flex flex-col flex-1">
+                                    <h4 className="text-sm font-bold text-white mb-2 truncate">{s.title}</h4>
+                                    <p className="text-[10px] text-white/40 mb-4 font-mono truncate">{s.token}</p>
+                                    
+                                    <div className="mt-auto flex gap-2">
+                                        <button
+                                            onClick={() => copyLink(s.token)}
+                                            className="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 rounded-lg transition-colors flex justify-center items-center gap-1"
+                                        >
+                                            <Link size={14} /> Copiar Link
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(s.id)}
+                                            className="px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors flex justify-center items-center"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {samples.length === 0 && (
+                            <div className="col-span-full py-10 text-center text-xs text-white/30">
+                                No hay muestras subidas todavía.
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+
 export default function AdminPanel() {
     const [authed, setAuthed] = useState(false);
     const [pwInput, setPwInput] = useState("");
@@ -3527,6 +3673,7 @@ export default function AdminPanel() {
         menu: <MenuAdmin onSave={showToast} />,
         paginas: <PagesAdmin onSave={showToast} />,
         galeria: <GalleryAdmin onSave={showToast} />,
+        muestras: <DesignSamplesAdmin onSave={showToast} />,
         sitio: <SiteConfigAdmin onSave={showToast} />,
         footer: <FooterAdmin onSave={showToast} />,
         seo: <SeoAdmin onSave={showToast} />,
